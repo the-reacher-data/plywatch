@@ -149,3 +149,4 @@ Secrets used:
 | `SNYK_TOKEN` | Dependency security scanning |
 | `SONAR_TOKEN` + `SONAR_HOST_URL` | SonarCloud integration |
 | `SONAR_PROJECT_KEY` (var) | SonarCloud project key |
+| `SONAR_ORGANIZATION` (var) | SonarCloud organization key |
