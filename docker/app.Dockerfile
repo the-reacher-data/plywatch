@@ -9,6 +9,7 @@ RUN npm ci --ignore-scripts
 
 # Copy only build-time sources — no test configs, no playwright, no examples
 COPY apps/web/svelte.config.js apps/web/tsconfig.json apps/web/vite.config.ts ./
+COPY apps/web/postcss.config.cjs apps/web/tailwind.config.ts ./
 COPY apps/web/src ./src
 COPY apps/web/static ./static
 
@@ -25,7 +26,7 @@ WORKDIR /app
 # Dedicated non-root user
 RUN groupadd -r plywatch && useradd -r -g plywatch -s /sbin/nologin plywatch
 
-# Install uv for fast, reproducible dependency installation
+# Install uv for fast dependency installation
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
 # Copy only production source — lab and examples are excluded via .dockerignore
@@ -48,6 +49,7 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8080/health')"
 
-CMD ["python", "-m", "uvicorn", "plywatch.main:app", \
+CMD ["uvicorn", "plywatch.main:app", \
      "--app-dir", "/app/apps/backend/src", \
-     "--host", "0.0.0.0", "--port", "8080"]
+     "--host", "0.0.0.0", "--port", "8080", \
+     "--proxy-headers", "--forwarded-allow-ips", "*"]
