@@ -62,6 +62,21 @@ class ReducibleTaskSnapshot(Protocol):
 
 TSnapshot = TypeVar("TSnapshot", bound=ReducibleTaskSnapshot)
 _MAX_TIMELINE_EVENTS = 50
+_IDENTITY_FIELD_MAPPINGS = (
+    ("queue_name", "queue"),
+    ("routing_key", "routing_key"),
+    ("root_id", "root_id"),
+    ("parent_id", "parent_id"),
+    ("hostname", "worker_hostname"),
+    ("args_preview", "args_preview"),
+    ("kwargs_preview", "kwargs_preview"),
+)
+_SCHEDULE_FIELD_MAPPINGS = (
+    ("schedule_id", "schedule_id"),
+    ("schedule_name", "schedule_name"),
+    ("schedule_pattern", "schedule_pattern"),
+    ("scheduled_for", "scheduled_for"),
+)
 
 
 class TaskSnapshotReducerRepository(Protocol[TSnapshot]):
@@ -105,28 +120,25 @@ class TaskSnapshotReducer(Generic[TSnapshot]):
         return snapshot
 
     def _merge_identity(self, snapshot: TSnapshot, envelope: TaskEnvelope) -> None:
-        self._merge_basic_identity(snapshot, envelope)
-        snapshot.worker_hostname = envelope.hostname or snapshot.worker_hostname
-        snapshot.args_preview = envelope.args_preview or snapshot.args_preview
-        snapshot.kwargs_preview = envelope.kwargs_preview or snapshot.kwargs_preview
+        self._merge_name_and_kind(snapshot, envelope)
+        self._merge_direct_identity_fields(snapshot, envelope)
         self._merge_canvas_metadata(snapshot, envelope)
         self._merge_schedule_metadata(snapshot, envelope)
 
-    def _merge_basic_identity(self, snapshot: TSnapshot, envelope: TaskEnvelope) -> None:
+    def _merge_name_and_kind(self, snapshot: TSnapshot, envelope: TaskEnvelope) -> None:
         if envelope.name is not None:
             snapshot.name = envelope.name
             classified_kind = classify_task_kind(envelope.name)
             if classified_kind != "unknown" or snapshot.kind == "unknown":
                 snapshot.kind = classified_kind
 
-        if envelope.queue_name is not None:
-            snapshot.queue = envelope.queue_name
-        if envelope.routing_key is not None:
-            snapshot.routing_key = envelope.routing_key
-        if envelope.root_id is not None:
-            snapshot.root_id = envelope.root_id
-        if envelope.parent_id is not None:
-            snapshot.parent_id = envelope.parent_id
+    def _merge_direct_identity_fields(self, snapshot: TSnapshot, envelope: TaskEnvelope) -> None:
+        for source_field, target_field in _IDENTITY_FIELD_MAPPINGS:
+            self._assign_if_present(
+                snapshot,
+                target_field=target_field,
+                value=getattr(envelope, source_field),
+            )
 
     def _merge_canvas_metadata(self, snapshot: TSnapshot, envelope: TaskEnvelope) -> None:
         if envelope.canvas_kind is None:
@@ -138,12 +150,19 @@ class TaskSnapshotReducer(Generic[TSnapshot]):
             snapshot.kind = "job"
 
     def _merge_schedule_metadata(self, snapshot: TSnapshot, envelope: TaskEnvelope) -> None:
-        if envelope.schedule_id is not None:
-            snapshot.schedule_id = envelope.schedule_id
-            snapshot.schedule_name = envelope.schedule_name
-            snapshot.schedule_pattern = envelope.schedule_pattern
-        if envelope.scheduled_for is not None:
-            snapshot.scheduled_for = envelope.scheduled_for
+        if envelope.schedule_id is None and envelope.scheduled_for is None:
+            return
+        for source_field, target_field in _SCHEDULE_FIELD_MAPPINGS:
+            self._assign_if_present(
+                snapshot,
+                target_field=target_field,
+                value=getattr(envelope, source_field),
+            )
+
+    @staticmethod
+    def _assign_if_present(snapshot: TSnapshot, *, target_field: str, value: str | None) -> None:
+        if value is not None:
+            setattr(snapshot, target_field, value)
 
     def _merge_state(self, snapshot: TSnapshot, envelope: TaskEnvelope) -> None:
         snapshot.state = envelope.state
