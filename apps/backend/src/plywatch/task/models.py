@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Literal
+from typing import Final, Literal
 
 import msgspec
 from loom.core.model import LoomStruct
@@ -25,6 +25,38 @@ CanvasKind = Literal["chain", "group", "chord"]
 CanvasRole = Literal["head", "tail", "member", "header", "body"]
 TaskKind = Literal["job", "callback", "callback_error", "unknown"]
 TaskState = Literal["sent", "received", "started", "retrying", "succeeded", "failed", "lost"]
+_TASK_KIND_PREFIXES: Final[tuple[tuple[str, TaskKind], ...]] = (
+    (TASK_KIND_PREFIX_CALLBACK_ERROR, TASK_KIND_CALLBACK_ERROR),
+    (TASK_KIND_PREFIX_CALLBACK, TASK_KIND_CALLBACK),
+    (TASK_KIND_PREFIX_JOB, TASK_KIND_JOB),
+)
+_SUMMARY_PAYLOAD_FIELDS: Final[tuple[tuple[str, str], ...]] = (
+    ("uuid", "uuid"),
+    ("name", "name"),
+    ("kind", "kind"),
+    ("state", "state"),
+    ("queue", "queue"),
+    ("routingKey", "routing_key"),
+    ("rootId", "root_id"),
+    ("parentId", "parent_id"),
+    ("retries", "retries"),
+    ("firstSeenAt", "first_seen_at"),
+    ("lastSeenAt", "last_seen_at"),
+    ("sentAt", "sent_at"),
+    ("receivedAt", "received_at"),
+    ("startedAt", "started_at"),
+    ("finishedAt", "finished_at"),
+    ("workerHostname", "worker_hostname"),
+    ("resultPreview", "result_preview"),
+    ("exceptionPreview", "exception_preview"),
+    ("canvasKind", "canvas_kind"),
+    ("canvasId", "canvas_id"),
+    ("canvasRole", "canvas_role"),
+    ("scheduleId", "schedule_id"),
+    ("scheduleName", "schedule_name"),
+    ("schedulePattern", "schedule_pattern"),
+    ("scheduledFor", "scheduled_for"),
+)
 
 @dataclass(frozen=True)
 class TaskTimelineEvent:
@@ -196,12 +228,9 @@ def classify_task_kind(name: str | None) -> TaskKind:
     """Classify a task from its Celery name."""
     if name is None:
         return TASK_KIND_UNKNOWN
-    if name.startswith(TASK_KIND_PREFIX_CALLBACK_ERROR):
-        return TASK_KIND_CALLBACK_ERROR
-    if name.startswith(TASK_KIND_PREFIX_CALLBACK):
-        return TASK_KIND_CALLBACK
-    if name.startswith(TASK_KIND_PREFIX_JOB):
-        return TASK_KIND_JOB
+    for prefix, kind in _TASK_KIND_PREFIXES:
+        if name.startswith(prefix):
+            return kind
     return TASK_KIND_UNKNOWN
 
 
@@ -291,35 +320,12 @@ def to_timeline_event_view(event: TaskTimelineEvent) -> TaskTimelineEventView:
 
 def to_task_summary_payload(view: TaskSummaryView) -> dict[str, JsonValue]:
     """Convert one task summary view into the frontend payload shape."""
-
-    return {
-        "uuid": view.uuid,
-        "name": view.name,
-        "kind": view.kind,
-        "state": view.state,
-        "queue": view.queue,
-        "routingKey": view.routing_key,
-        "rootId": view.root_id,
-        "parentId": view.parent_id,
-        "childrenIds": list(view.children_ids),
-        "retries": view.retries,
-        "firstSeenAt": view.first_seen_at,
-        "lastSeenAt": view.last_seen_at,
-        "sentAt": view.sent_at,
-        "receivedAt": view.received_at,
-        "startedAt": view.started_at,
-        "finishedAt": view.finished_at,
-        "workerHostname": view.worker_hostname,
-        "resultPreview": view.result_preview,
-        "exceptionPreview": view.exception_preview,
-        "canvasKind": view.canvas_kind,
-        "canvasId": view.canvas_id,
-        "canvasRole": view.canvas_role,
-        "scheduleId": view.schedule_id,
-        "scheduleName": view.schedule_name,
-        "schedulePattern": view.schedule_pattern,
-        "scheduledFor": view.scheduled_for,
+    payload = {
+        public_key: getattr(view, source_attr)
+        for public_key, source_attr in _SUMMARY_PAYLOAD_FIELDS
     }
+    payload["childrenIds"] = list(view.children_ids)
+    return payload
 
 
 def to_graph_node_view(snapshot: TaskSnapshot) -> TaskGraphNodeView:

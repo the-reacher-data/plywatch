@@ -129,8 +129,9 @@ export function buildTaskDagLayout(
   }
 
   const edges = relevantEdges(graph.edges, nodeIds, graph.rootId);
-  for (const node of contentNodes) {
-    void node;
+  let remainingPasses = contentNodes.length;
+  while (remainingPasses > 0) {
+    remainingPasses -= 1;
     let changed = false;
     for (const edge of edges) {
       const targetRank = rankById.get(edge.target) ?? 0;

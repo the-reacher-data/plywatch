@@ -3,11 +3,24 @@
 from __future__ import annotations
 
 import ast
-from typing import TypedDict
+from typing import Final, TypedDict
 
 from plywatch.shared.raw_events import JsonValue
 from plywatch.task.constants import CANVAS_MARKER_KEY, SCHEDULE_MARKER_KEY
 from plywatch.task.models import CanvasKind, CanvasRole
+
+_CANVAS_KIND_BY_VALUE: Final[dict[str, CanvasKind]] = {
+    "chain": "chain",
+    "group": "group",
+    "chord": "chord",
+}
+_CANVAS_ROLE_BY_VALUE: Final[dict[str, CanvasRole]] = {
+    "head": "head",
+    "tail": "tail",
+    "member": "member",
+    "header": "header",
+    "body": "body",
+}
 
 
 class CanvasMetadata(TypedDict):
@@ -83,24 +96,8 @@ def parse_kwargs_mapping(payload: dict[str, JsonValue]) -> dict[str, JsonValue] 
 
 
 def _canvas_kind(value: object) -> CanvasKind | None:
-    if value == "chain":
-        return "chain"
-    if value == "group":
-        return "group"
-    if value == "chord":
-        return "chord"
-    return None
+    return _CANVAS_KIND_BY_VALUE.get(value) if isinstance(value, str) else None
 
 
 def _canvas_role(value: object) -> CanvasRole | None:
-    if value == "head":
-        return "head"
-    if value == "tail":
-        return "tail"
-    if value == "member":
-        return "member"
-    if value == "header":
-        return "header"
-    if value == "body":
-        return "body"
-    return None
+    return _CANVAS_ROLE_BY_VALUE.get(value) if isinstance(value, str) else None

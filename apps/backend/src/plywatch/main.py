@@ -9,7 +9,7 @@ from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from dataclasses import dataclass
 import logging
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
 import prometheus_client
 from pydantic import BaseModel
@@ -486,7 +486,9 @@ def _register_operational_routes(app: FastAPI, runtime: MonitorRuntime) -> None:
         }
 
     @app.delete("/api/monitor/tasks")
-    async def remove_monitored_tasks(payload: MonitorIdsPayload = Body(...)) -> dict[str, object]:
+    async def remove_monitored_tasks(
+        payload: Annotated[MonitorIdsPayload, Body(...)],
+    ) -> dict[str, object]:
         """Remove retained task families from the monitor only."""
         result = runtime.monitor_admin.remove_task_families(payload.ids)
         return {
@@ -495,7 +497,9 @@ def _register_operational_routes(app: FastAPI, runtime: MonitorRuntime) -> None:
         }
 
     @app.delete("/api/monitor/schedules")
-    async def remove_monitored_schedules(payload: MonitorIdsPayload = Body(...)) -> dict[str, object]:
+    async def remove_monitored_schedules(
+        payload: Annotated[MonitorIdsPayload, Body(...)],
+    ) -> dict[str, object]:
         """Remove retained schedule runs from the monitor only."""
         result = runtime.monitor_admin.remove_schedules(payload.ids)
         return {
