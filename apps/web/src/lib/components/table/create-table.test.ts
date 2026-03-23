@@ -26,4 +26,23 @@ describe('buildTableView', () => {
     expect(table.rows[0]?.id).toBe('1');
     expect(table.rows[0]?.cells[0]?.value).toBe('hello');
   });
+
+  it('uses the custom cell renderer when provided', () => {
+    const columns: TableColumn<RowItem>[] = [
+      {
+        id: 'value',
+        header: 'Value',
+        accessor: (row) => row.value,
+        cell: (value, row) => `${row.id}:${String(value).toUpperCase()}`
+      }
+    ];
+
+    const [column] = toColumnDefs(columns);
+    const rendered = column?.cell?.({
+      getValue: () => 'hello',
+      row: { original: { id: '1', value: 'hello' } }
+    } as never);
+
+    expect(rendered).toBe('1:HELLO');
+  });
 });

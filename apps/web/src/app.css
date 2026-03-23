@@ -45,7 +45,7 @@
   /*
    * Tone badge — used dynamically: class="tone-badge-{tone}"
    */
-  .tone-badge-neutral  { background: #f3f4f6; color: #6b7280; }
+  .tone-badge-neutral  { background: #f3f4f6; color: #4b5563; }
   .tone-badge-active   { background: #eff6ff; color: #1d4ed8; }
   .tone-badge-retrying { background: #fffbeb; color: #b45309; }
   .tone-badge-success  { background: #f0fdf4; color: #15803d; }

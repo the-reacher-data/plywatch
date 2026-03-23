@@ -305,7 +305,7 @@ class PrometheusPlywatchMetricsAdapter(MonitorMetricsAdapter):
         count = context.worker_repository.count()
         self._plywatch_workers_tracked.set(count)
         workers = context.worker_repository.list_recent(count) if count > 0 else []
-        state_counts = {state: 0 for state in _WORKER_STATES}
+        state_counts = dict.fromkeys(_WORKER_STATES, 0)
 
         for worker in workers:
             state_counts[worker.state] += 1

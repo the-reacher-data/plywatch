@@ -251,9 +251,7 @@ export function createTaskStore(client: MonitorClient, pageSize = 25): TaskStore
 
         const message =
           result.reason instanceof Error ? result.reason.message : 'Failed to load tasks';
-        if (firstError === null) {
-          firstError = message;
-        }
+        firstError ??= message;
         const section = TASK_SECTIONS[index] ?? 'queued';
         next = {
           ...next,

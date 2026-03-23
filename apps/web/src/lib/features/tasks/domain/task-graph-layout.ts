@@ -129,14 +129,12 @@ export function buildTaskDagLayout(
   }
 
   const edges = relevantEdges(graph.edges, nodeIds, graph.rootId);
-  for (let i = 0; i < contentNodes.length; i++) {
+  for (const node of contentNodes) {
+    void node;
     let changed = false;
     for (const edge of edges) {
       const targetRank = rankById.get(edge.target) ?? 0;
-      const sourceRank =
-        edge.source === graph.rootId && isCanvasRooted
-          ? -1
-          : (rankById.get(edge.source) ?? 0);
+      const sourceRank = edge.source === graph.rootId && isCanvasRooted ? -1 : (rankById.get(edge.source) ?? 0);
       const nextRank = Math.max(targetRank, sourceRank + 1);
       if (nextRank !== targetRank) {
         rankById.set(edge.target, nextRank);
@@ -152,18 +150,19 @@ export function buildTaskDagLayout(
     phasesMap.set(node.phase, [...(phasesMap.get(node.phase) ?? []), node]);
   }
 
-  const phases = Array.from(phasesMap.entries())
-    .sort((left, right) => left[0] - right[0])
+  const orderedPhases = Array.from(phasesMap.entries()).toSorted((left, right) => left[0] - right[0]);
+  const phases = orderedPhases
     .map(([phaseIndex, phaseNodes]) => {
+      const orderedPhaseNodes = phaseNodes.toSorted((left, right) => {
+        const leftName = left.name ?? left.id;
+        const rightName = right.name ?? right.id;
+        return leftName.localeCompare(rightName);
+      });
       return {
         key: `phase-${phaseIndex}`,
         index: phaseIndex,
         label: phaseLabel(phaseIndex),
-        nodes: phaseNodes.sort((left, right) => {
-          const leftName = left.name ?? left.id;
-          const rightName = right.name ?? right.id;
-          return leftName.localeCompare(rightName);
-        }),
+        nodes: orderedPhaseNodes,
       } satisfies DagPhase;
     });
 

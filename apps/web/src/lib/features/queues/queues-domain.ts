@@ -228,8 +228,8 @@ export function buildQueueTimeline(items: TaskSummary[], bucketCount = 8): Queue
 
   if (timestamps.length === 0) return [];
 
-  const minTime = timestamps[0]!;
-  const maxTime = timestamps[timestamps.length - 1]!;
+  const minTime = timestamps[0];
+  const maxTime = timestamps.at(-1) ?? minTime;
   const span = Math.max(maxTime - minTime, 1);
   const bucketSize = Math.max(Math.ceil(span / bucketCount), 1);
 

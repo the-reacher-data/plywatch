@@ -1,6 +1,7 @@
 import type {
   RawEvent,
   TaskSectionCounts,
+  TaskState,
   TaskSummary,
   WorkerState,
   WorkerSummary
@@ -160,13 +161,18 @@ export function buildWorkerRecentActivity(tasks: TaskSummary[]): WorkerActivityI
     label: task.name ?? task.id,
     state: task.state,
     lastSeenAt: formatRelativeTime(task.lastSeenAt),
-    tone:
-      task.state === 'failed' || task.state === 'lost'
-        ? 'danger'
-        : task.state === 'succeeded'
-          ? 'success'
-          : 'active'
+    tone: toneForTaskState(task.state)
   }));
+}
+
+function toneForTaskState(state: TaskState): 'danger' | 'success' | 'active' {
+  if (state === 'failed' || state === 'lost') {
+    return 'danger';
+  }
+  if (state === 'succeeded') {
+    return 'success';
+  }
+  return 'active';
 }
 
 function bucketLabel(date: Date): string {
@@ -183,8 +189,8 @@ export function buildWorkerTimeline(events: RawEvent[], bucketCount = 8): Worker
 
   if (timestamps.length === 0) return [];
 
-  const min = timestamps[0]!;
-  const max = timestamps[timestamps.length - 1]!;
+  const min = timestamps[0];
+  const max = timestamps.at(-1) ?? min;
   const span = Math.max(max - min, 1);
   const bucketSize = Math.max(Math.ceil(span / bucketCount), 1);
 

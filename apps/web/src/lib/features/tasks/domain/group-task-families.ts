@@ -158,7 +158,8 @@ export function buildTaskFamilies(items: TaskSummary[]): TaskFamilyView[] {
     if (remainingItems.length > 0) {
       result.push(buildFamily(remainingItems, key));
     }
-    for (const item of detachedQueuedDescendants.sort(sortByFirstSeenAsc)) {
+    const orderedDetachedDescendants = detachedQueuedDescendants.toSorted(sortByFirstSeenAsc);
+    for (const item of orderedDetachedDescendants) {
       result.push(buildFamily([item], item.id));
     }
     return result;

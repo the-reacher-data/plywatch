@@ -15,7 +15,7 @@ export function toColumnDefs<TData>(columns: TableColumn<TData>[]): ColumnDef<TD
     cell: (context) => {
       const value = context.getValue();
       const row = context.row.original;
-      return column.cell !== undefined ? column.cell(value, row) : String(value ?? '');
+      return column.cell === undefined ? String(value ?? '') : column.cell(value, row);
     }
   }));
 }

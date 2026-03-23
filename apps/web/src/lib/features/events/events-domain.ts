@@ -154,7 +154,7 @@ export function buildWorkerLanes(displayItems: RawEvent[], allItems: RawEvent[])
         status: deriveWorkerStatus(all),
         events: display,
         groups: buildEventGroups(display),
-        lastEventAt: all[all.length - 1]?.capturedAt ?? '',
+        lastEventAt: all.at(-1)?.capturedAt ?? '',
         heartbeatCount,
       };
     })

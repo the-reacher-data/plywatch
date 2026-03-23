@@ -22,12 +22,8 @@ function buildChildrenIndex(graph: TaskGraph): Map<string, string[]> {
   //   • skip self-referential parentId (node pointing to itself)
   const coveredByParentId = new Set<string>();
   for (const node of graph.nodes) {
-    if (node.parentId === null) continue;
-    if (node.id === graph.rootId) continue;
-    if (node.id === node.parentId) continue;
-    const list = index.get(node.parentId) ?? [];
-    if (!list.includes(node.id)) list.push(node.id);
-    index.set(node.parentId, list);
+    if (!_shouldLinkNodeParent(node, graph.rootId)) continue;
+    _appendUniqueChild(index, node.parentId, node.id);
     coveredByParentId.add(node.id);
   }
 
@@ -35,15 +31,25 @@ function buildChildrenIndex(graph: TaskGraph): Map<string, string[]> {
   // Callbacks (link/link_error) and errbacks have parentId=null but appear in edges.
   // Guards: root is never a child; self-loops are skipped.
   for (const edge of graph.edges) {
-    if (coveredByParentId.has(edge.target)) continue;
-    if (edge.target === graph.rootId) continue;
-    if (edge.target === edge.source) continue;
-    const list = index.get(edge.source) ?? [];
-    if (!list.includes(edge.target)) list.push(edge.target);
-    index.set(edge.source, list);
+    if (!_shouldLinkEdge(edge.source, edge.target, graph.rootId, coveredByParentId)) continue;
+    _appendUniqueChild(index, edge.source, edge.target);
   }
 
   return index;
+}
+
+function _shouldLinkNodeParent(node: TaskGraph['nodes'][number], rootId: string): node is TaskGraph['nodes'][number] & { parentId: string } {
+  return node.parentId !== null && node.id !== rootId && node.id !== node.parentId;
+}
+
+function _shouldLinkEdge(source: string, target: string, rootId: string, coveredByParentId: Set<string>): boolean {
+  return !coveredByParentId.has(target) && target !== rootId && target !== source;
+}
+
+function _appendUniqueChild(index: Map<string, string[]>, parentId: string, childId: string): void {
+  const list = index.get(parentId) ?? [];
+  if (!list.includes(childId)) list.push(childId);
+  index.set(parentId, list);
 }
 
 function buildNode(

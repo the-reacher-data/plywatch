@@ -66,28 +66,12 @@ class MonitorAdminService:
             snapshot = self._task_repository.get(task_id) or self._completed_task_repository.get(task_id)
             if snapshot is None:
                 continue
-            live_items = (
-                self._task_repository.list_by_canvas_id(snapshot.canvas_id)
-                if snapshot.canvas_id is not None and snapshot.canvas_kind is not None
-                else self._task_repository.list_by_root(snapshot.root_id or snapshot.uuid)
-            )
-            completed_items = (
-                self._completed_task_repository.list_by_canvas_id(snapshot.canvas_id)
-                if snapshot.canvas_id is not None and snapshot.canvas_kind is not None
-                else self._completed_task_repository.list_by_root(snapshot.root_id or snapshot.uuid)
-            )
-            family_items = {item.uuid: item for item in completed_items}
-            family_items.update({item.uuid: item for item in live_items})
-            for item in family_items.values():
-                if item.uuid in visited:
+            for family_task_id in self._family_task_ids(snapshot):
+                if family_task_id in visited:
                     continue
-                visited.add(item.uuid)
-                self._queue_repository.remove_task(item.uuid)
-                self._schedule_repository.remove(item.uuid)
-                removed_live = self._task_repository.remove(item.uuid)
-                removed_completed = self._completed_task_repository.remove(item.uuid)
-                if removed_live is not None or removed_completed is not None:
-                    removed_ids.append(item.uuid)
+                visited.add(family_task_id)
+                if self._remove_task_everywhere(family_task_id):
+                    removed_ids.append(family_task_id)
         return MonitorRemovalResult(removed_count=len(removed_ids), removed_ids=tuple(removed_ids))
 
     def remove_schedules(self, schedule_ids: list[str]) -> MonitorRemovalResult:
@@ -100,9 +84,34 @@ class MonitorAdminService:
                 if item.uuid in visited:
                     continue
                 visited.add(item.uuid)
-                self._queue_repository.remove_task(item.uuid)
-                self._schedule_repository.remove(item.uuid)
-                self._task_repository.remove(item.uuid)
-                self._completed_task_repository.remove(item.uuid)
+                self._remove_task_everywhere(item.uuid)
                 removed_ids.append(item.uuid)
         return MonitorRemovalResult(removed_count=len(removed_ids), removed_ids=tuple(removed_ids))
+
+    def _family_task_ids(self, snapshot: object) -> tuple[str, ...]:
+        live_items, completed_items = self._family_items(snapshot)
+        family_items = {item.uuid: item for item in completed_items}
+        family_items.update({item.uuid: item for item in live_items})
+        return tuple(family_items)
+
+    def _family_items(self, snapshot: object) -> tuple[list[object], list[object]]:
+        canvas_id = getattr(snapshot, "canvas_id", None)
+        canvas_kind = getattr(snapshot, "canvas_kind", None)
+        if canvas_id is not None and canvas_kind is not None:
+            return (
+                self._task_repository.list_by_canvas_id(canvas_id),
+                self._completed_task_repository.list_by_canvas_id(canvas_id),
+            )
+
+        root_id = getattr(snapshot, "root_id", None) or getattr(snapshot, "uuid")
+        return (
+            self._task_repository.list_by_root(root_id),
+            self._completed_task_repository.list_by_root(root_id),
+        )
+
+    def _remove_task_everywhere(self, task_id: str) -> bool:
+        self._queue_repository.remove_task(task_id)
+        self._schedule_repository.remove(task_id)
+        removed_live = self._task_repository.remove(task_id)
+        removed_completed = self._completed_task_repository.remove(task_id)
+        return removed_live is not None or removed_completed is not None

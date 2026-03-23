@@ -46,18 +46,19 @@ interface BackendScheduleSummary extends Omit<ScheduleSummary, 'recentRuns' | 'p
   recentRuns: BackendTaskSummary[];
 }
 
-function toTaskSummary(task: BackendTaskSummary): TaskSummary {
+function withId<T extends { uuid: string }>(value: T): T & { id: string } {
   return {
-    ...task,
-    id: task.uuid
+    ...value,
+    id: value.uuid
   };
 }
 
+function toTaskSummary(task: BackendTaskSummary): TaskSummary {
+  return withId(task);
+}
+
 function toTaskDetail(task: BackendTaskDetail): TaskDetail {
-  return {
-    ...task,
-    id: task.uuid
-  };
+  return withId(task);
 }
 
 function toTaskGraph(graph: BackendTaskGraph): TaskGraph {
@@ -109,9 +110,9 @@ export class HttpMonitorClient implements MonitorClient {
       query.set('section', queryFilters.section);
     }
     const url = `${this.baseUrl}/api/tasks/?${query.toString()}`;
-    const response = await (signal !== undefined
-      ? this.fetcher(url, { signal })
-      : this.fetcher(url));
+    const response = signal === undefined
+      ? await this.fetcher(url)
+      : await this.fetcher(url, { signal });
     const payload = await readJson<BackendCursorPage<BackendTaskSummary>>(response);
     return {
       ...payload,

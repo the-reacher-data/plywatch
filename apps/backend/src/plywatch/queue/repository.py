@@ -110,44 +110,20 @@ class InMemoryQueueSnapshotRepository(
             if resolved_queue is None:
                 return
 
-            target = self._items.get(resolved_queue)
-            if target is None:
-                target = QueueSnapshot(
-                    name=resolved_queue,
-                    first_seen_at=captured_at,
-                    last_seen_at=captured_at,
-                )
-                self._upsert_locked(resolved_queue, target)
-
-            if previous is None:
-                target.historical_total_seen += 1
-            if state == "retrying":
-                target.historical_retried_count += 1
-            if state == "succeeded" and (previous is None or previous.state != "succeeded"):
-                target.historical_succeeded_count += 1
-            if state in {"failed", "lost"} and (
-                previous is None or previous.state not in {"failed", "lost"}
-            ):
-                target.historical_failed_count += 1
+            target = self._get_or_create_snapshot(resolved_queue, captured_at)
+            self._record_historical_counts(target, previous=previous, state=state)
 
             if previous is not None and previous.counted:
                 self._decrement(previous)
 
-            tracked = _TrackedTask(
+            tracked = self._build_tracked_task(
                 task_id=task_id,
-                queue_name=resolved_queue,
-                routing_key=routing_key or (previous.routing_key if previous is not None else None),
+                resolved_queue=resolved_queue,
+                routing_key=routing_key,
                 state=state,
-                last_seen_at=captured_at,
-                sent_at=previous.sent_at if previous is not None else None,
-                latest_received_at=previous.latest_received_at if previous is not None else None,
-                latest_started_at=previous.latest_started_at if previous is not None else None,
-                scheduled_for=scheduled_for or (previous.scheduled_for if previous is not None else None),
-                counted=previous.counted if previous is not None else True,
-                queue_wait_recorded=previous.queue_wait_recorded if previous is not None else False,
-                start_delay_recorded=previous.start_delay_recorded if previous is not None else False,
-                run_duration_recorded=previous.run_duration_recorded if previous is not None else False,
-                end_to_end_recorded=previous.end_to_end_recorded if previous is not None else False,
+                captured_at=captured_at,
+                scheduled_for=scheduled_for,
+                previous=previous,
             )
             self._update_timing_markers(tracked, state=state, captured_at=captured_at)
             self._record_timing_metrics(target, tracked, state=state, captured_at=captured_at)
@@ -235,7 +211,6 @@ class InMemoryQueueSnapshotRepository(
             return
         if state in {"failed", "lost"}:
             snapshot.failed_count = max(0, snapshot.failed_count + delta)
-            return
 
     def _update_timing_markers(
         self,
@@ -261,34 +236,133 @@ class InMemoryQueueSnapshotRepository(
         state: TaskState,
         captured_at: str,
     ) -> None:
-        if state == "received" and not tracked.queue_wait_recorded:
-            queue_wait_ms = _duration_ms(tracked.sent_at, captured_at)
-            if queue_wait_ms is not None:
-                snapshot.queue_wait_total_ms += queue_wait_ms
-                snapshot.queue_wait_sample_count += 1
-                tracked.queue_wait_recorded = True
+        if state == "received":
+            self._record_duration_metric(
+                tracked=tracked,
+                recorded_attr="queue_wait_recorded",
+                start_at=tracked.sent_at,
+                end_at=captured_at,
+                apply=lambda value: _accumulate_metric(
+                    snapshot,
+                    total_attr="queue_wait_total_ms",
+                    count_attr="queue_wait_sample_count",
+                    value=value,
+                ),
+            )
 
-        if state == "started" and not tracked.start_delay_recorded:
-            start_delay_ms = _duration_ms(tracked.latest_received_at, captured_at)
-            if start_delay_ms is not None:
-                snapshot.start_delay_total_ms += start_delay_ms
-                snapshot.start_delay_sample_count += 1
-                tracked.start_delay_recorded = True
+        if state == "started":
+            self._record_duration_metric(
+                tracked=tracked,
+                recorded_attr="start_delay_recorded",
+                start_at=tracked.latest_received_at,
+                end_at=captured_at,
+                apply=lambda value: _accumulate_metric(
+                    snapshot,
+                    total_attr="start_delay_total_ms",
+                    count_attr="start_delay_sample_count",
+                    value=value,
+                ),
+            )
 
         if state in {"succeeded", "failed", "lost"}:
-            if not tracked.run_duration_recorded:
-                run_duration_ms = _duration_ms(tracked.latest_started_at, captured_at)
-                if run_duration_ms is not None:
-                    snapshot.run_duration_total_ms += run_duration_ms
-                    snapshot.run_duration_sample_count += 1
-                    tracked.run_duration_recorded = True
+            self._record_duration_metric(
+                tracked=tracked,
+                recorded_attr="run_duration_recorded",
+                start_at=tracked.latest_started_at,
+                end_at=captured_at,
+                apply=lambda value: _accumulate_metric(
+                    snapshot,
+                    total_attr="run_duration_total_ms",
+                    count_attr="run_duration_sample_count",
+                    value=value,
+                ),
+            )
+            self._record_duration_metric(
+                tracked=tracked,
+                recorded_attr="end_to_end_recorded",
+                start_at=tracked.sent_at,
+                end_at=captured_at,
+                apply=lambda value: _accumulate_metric(
+                    snapshot,
+                    total_attr="end_to_end_total_ms",
+                    count_attr="end_to_end_sample_count",
+                    value=value,
+                ),
+            )
 
-            if not tracked.end_to_end_recorded:
-                end_to_end_ms = _duration_ms(tracked.sent_at, captured_at)
-                if end_to_end_ms is not None:
-                    snapshot.end_to_end_total_ms += end_to_end_ms
-                    snapshot.end_to_end_sample_count += 1
-                    tracked.end_to_end_recorded = True
+    def _get_or_create_snapshot(self, queue_name: str, captured_at: str) -> QueueSnapshot:
+        target = self._items.get(queue_name)
+        if target is not None:
+            return target
+
+        target = QueueSnapshot(
+            name=queue_name,
+            first_seen_at=captured_at,
+            last_seen_at=captured_at,
+        )
+        self._upsert_locked(queue_name, target)
+        return target
+
+    def _record_historical_counts(
+        self,
+        snapshot: QueueSnapshot,
+        *,
+        previous: _TrackedTask | None,
+        state: TaskState,
+    ) -> None:
+        if previous is None:
+            snapshot.historical_total_seen += 1
+        if state == "retrying":
+            snapshot.historical_retried_count += 1
+        if state == "succeeded" and (previous is None or previous.state != "succeeded"):
+            snapshot.historical_succeeded_count += 1
+        if state in {"failed", "lost"} and (previous is None or previous.state not in {"failed", "lost"}):
+            snapshot.historical_failed_count += 1
+
+    def _build_tracked_task(
+        self,
+        *,
+        task_id: str,
+        resolved_queue: str,
+        routing_key: str | None,
+        state: TaskState,
+        captured_at: str,
+        scheduled_for: str | None,
+        previous: _TrackedTask | None,
+    ) -> _TrackedTask:
+        return _TrackedTask(
+            task_id=task_id,
+            queue_name=resolved_queue,
+            routing_key=routing_key or (previous.routing_key if previous is not None else None),
+            state=state,
+            last_seen_at=captured_at,
+            sent_at=previous.sent_at if previous is not None else None,
+            latest_received_at=previous.latest_received_at if previous is not None else None,
+            latest_started_at=previous.latest_started_at if previous is not None else None,
+            scheduled_for=scheduled_for or (previous.scheduled_for if previous is not None else None),
+            counted=previous.counted if previous is not None else True,
+            queue_wait_recorded=previous.queue_wait_recorded if previous is not None else False,
+            start_delay_recorded=previous.start_delay_recorded if previous is not None else False,
+            run_duration_recorded=previous.run_duration_recorded if previous is not None else False,
+            end_to_end_recorded=previous.end_to_end_recorded if previous is not None else False,
+        )
+
+    def _record_duration_metric(
+        self,
+        *,
+        tracked: _TrackedTask,
+        recorded_attr: str,
+        start_at: str | None,
+        end_at: str,
+        apply: callable,
+    ) -> None:
+        if getattr(tracked, recorded_attr):
+            return
+        duration_ms = _duration_ms(start_at, end_at)
+        if duration_ms is None:
+            return
+        apply(duration_ms)
+        setattr(tracked, recorded_attr, True)
 
 
 def _duration_ms(start_at: str | None, end_at: str) -> int | None:
@@ -319,3 +393,14 @@ def _is_visible_snapshot(snapshot: QueueSnapshot) -> bool:
             snapshot.historical_retried_count > 0,
         )
     )
+
+
+def _accumulate_metric(
+    snapshot: QueueSnapshot,
+    *,
+    total_attr: str,
+    count_attr: str,
+    value: int,
+) -> None:
+    setattr(snapshot, total_attr, getattr(snapshot, total_attr) + value)
+    setattr(snapshot, count_attr, getattr(snapshot, count_attr) + 1)

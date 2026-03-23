@@ -124,7 +124,9 @@ class TaskGraphBuilder:
 
         nodes: list[TaskGraphNodeView] = [self._build_canvas_root_node(canvas_root_id=canvas_root_id, canvas_kind="chain", items=ordered_items)]
         for item in ordered_items:
-            parent_id = canvas_root_id if item.uuid == head.uuid else head.uuid if item.uuid == tail.uuid else canvas_root_id
+            parent_id = canvas_root_id
+            if item.uuid == tail.uuid and item.uuid != head.uuid:
+                parent_id = head.uuid
             nodes.append(
                 TaskGraphNodeView(
                     uuid=item.uuid,

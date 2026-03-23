@@ -42,51 +42,19 @@ jobs:
             --junitxml=junit.xml \
             -o junit_family=legacy
 
-      - name: Upload coverage to Codecov
-        if: ${{ hashFiles('coverage.xml') != '' }}
-        uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de # v5
+      - name: Upload backend coverage artifact
+        if: ${{ always() && hashFiles('coverage.xml') != '' }}
+        uses: actions/upload-artifact@v4
         with:
-          files: ./coverage.xml
-          fail_ci_if_error: false
-          token: ${{ env.CODECOV_TOKEN }}
+          name: backend-coverage
+          path: coverage.xml
 
-      - name: Upload test results to Codecov
+      - name: Upload backend JUnit artifact
         if: ${{ !cancelled() && hashFiles('junit.xml') != '' }}
-        uses: codecov/test-results-action@0fa95f0e1eeaafde2c782583b36b28ad0d8c77d3 # v1
+        uses: actions/upload-artifact@v4
         with:
-          token: ${{ env.CODECOV_TOKEN }}
-
-      - name: Validate SonarCloud configuration
-        shell: bash
-        run: |
-          set -euo pipefail
-          missing=0
-          if [ -z "${SONAR_TOKEN}" ]; then
-            echo "Missing SONAR_TOKEN secret"
-            missing=1
-          fi
-          if [ -z "${SONAR_PROJECT_KEY}" ]; then
-            echo "Missing SONAR_PROJECT_KEY variable"
-            missing=1
-          fi
-          if [ -z "${SONAR_ORGANIZATION}" ]; then
-            echo "Missing SONAR_ORGANIZATION variable"
-            missing=1
-          fi
-          if [ "${missing}" -ne 0 ]; then
-            exit 1
-          fi
-
-      - name: SonarCloud scan
-        uses: SonarSource/sonarqube-scan-action@2f77a1ec69fb1d595b06f35ab27e97605bdef703 # v5
-        with:
-          args: >
-            -Dsonar.projectKey=${{ env.SONAR_PROJECT_KEY }}
-            -Dsonar.organization=${{ env.SONAR_ORGANIZATION }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SONAR_TOKEN: ${{ env.SONAR_TOKEN }}
-          SONAR_HOST_URL: ${{ env.SONAR_HOST_URL }}
+          name: backend-junit
+          path: junit.xml
 
   frontend:
     name: Frontend — lint, typecheck, test
@@ -116,6 +84,102 @@ jobs:
 
       - name: Unit tests
         run: npm test
+
+      - name: Frontend coverage
+        run: npm run test:coverage
+
+      - name: Upload frontend coverage artifact
+        if: ${{ always() && hashFiles('apps/web/coverage/lcov.info') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-coverage
+          path: apps/web/coverage/lcov.info
+
+  quality:
+    name: Quality — coverage & SonarCloud
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+    env:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      SONAR_HOST_URL: https://sonarcloud.io
+      SONAR_PROJECT_KEY: ${{ vars.SONAR_PROJECT_KEY }}
+      SONAR_ORGANIZATION: ${{ vars.SONAR_ORGANIZATION }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Download backend coverage artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: backend-coverage
+          path: .
+
+      - name: Download backend JUnit artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: backend-junit
+          path: .
+
+      - name: Download frontend coverage artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-coverage
+          path: apps/web/coverage
+
+      - name: Upload coverage to Codecov
+        if: ${{ hashFiles('coverage.xml', 'apps/web/coverage/lcov.info') != '' }}
+        uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de # v5
+        with:
+          files: ./coverage.xml,./apps/web/coverage/lcov.info
+          fail_ci_if_error: false
+          token: ${{ env.CODECOV_TOKEN }}
+
+      - name: Upload test results to Codecov
+        if: ${{ !cancelled() && hashFiles('junit.xml') != '' }}
+        uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de # v5
+        with:
+          files: ./junit.xml
+          report_type: test_results
+          fail_ci_if_error: false
+          token: ${{ env.CODECOV_TOKEN }}
+
+      - name: Validate SonarCloud configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          missing=0
+          if [ -z "${SONAR_TOKEN}" ]; then
+            echo "Missing SONAR_TOKEN secret"
+            missing=1
+          fi
+          if [ -z "${SONAR_PROJECT_KEY}" ]; then
+            echo "Missing SONAR_PROJECT_KEY variable"
+            missing=1
+          fi
+          if [ -z "${SONAR_ORGANIZATION}" ]; then
+            echo "Missing SONAR_ORGANIZATION variable"
+            missing=1
+          fi
+          if [ "${missing}" -ne 0 ]; then
+            exit 1
+          fi
+          if [ ! -f "apps/web/coverage/lcov.info" ]; then
+            echo "Missing frontend coverage report"
+            exit 1
+          fi
+
+      - name: SonarCloud scan
+        uses: SonarSource/sonarqube-scan-action@2f77a1ec69fb1d595b06f35ab27e97605bdef703 # v5
+        with:
+          args: >
+            -Dsonar.projectKey=${{ env.SONAR_PROJECT_KEY }}
+            -Dsonar.organization=${{ env.SONAR_ORGANIZATION }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ env.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ env.SONAR_HOST_URL }}
 
   snyk-monitor:
     name: Snyk — dependency monitoring
