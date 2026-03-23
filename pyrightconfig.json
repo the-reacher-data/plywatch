@@ -19,5 +19,5 @@
   "typeCheckingMode": "standard",
   "reportImplicitRelativeImport": "none",
   "reportMissingSuperCall": "none",
-  "reportMissingTypeStubs": "warning"
+  "reportMissingTypeStubs": "none"
 }
