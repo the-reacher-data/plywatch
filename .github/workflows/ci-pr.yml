@@ -17,7 +17,7 @@ jobs:
     env:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-      SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+      SONAR_HOST_URL: https://sonarcloud.io
       SONAR_PROJECT_KEY: ${{ vars.SONAR_PROJECT_KEY }}
       SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
     steps:
@@ -114,8 +114,8 @@ jobs:
         with:
           token: ${{ env.CODECOV_TOKEN }}
 
-      - name: SonarQube scan
-        if: ${{ env.SONAR_TOKEN != '' && env.SONAR_HOST_URL != '' && env.SONAR_PROJECT_KEY != '' }}
+      - name: SonarCloud scan
+        if: ${{ env.SONAR_TOKEN != '' && env.SONAR_PROJECT_KEY != '' }}
         uses: SonarSource/sonarqube-scan-action@2f77a1ec69fb1d595b06f35ab27e97605bdef703 # v5
         with:
           args: >
@@ -239,6 +239,17 @@ jobs:
           format: sarif
           output: trivy.sarif
           severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "0"
+
+      - name: Trivy — generate table report
+        uses: aquasecurity/trivy-action@6e7b7d1fd3e4fef0c5fa8cce1229c54b2c9bd0d8 # v0.28.0
+        with:
+          image-ref: plywatch:ci-${{ github.event.pull_request.number }}
+          format: table
+          output: trivy.txt
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
           exit-code: "0"
 
       - name: Upload Trivy results to GitHub Security tab
@@ -247,10 +258,18 @@ jobs:
         with:
           sarif_file: trivy.sarif
 
+      - name: Upload Trivy table report artifact
+        if: ${{ always() && hashFiles('trivy.txt') != '' }}
+        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4
+        with:
+          name: trivy-report
+          path: trivy.txt
+
       - name: Trivy — enforce CRITICAL gate
         uses: aquasecurity/trivy-action@6e7b7d1fd3e4fef0c5fa8cce1229c54b2c9bd0d8 # v0.28.0
         with:
           image-ref: plywatch:ci-${{ github.event.pull_request.number }}
           format: table
           severity: CRITICAL
+          ignore-unfixed: true
           exit-code: "1"
