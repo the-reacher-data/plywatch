@@ -56,8 +56,28 @@ jobs:
         with:
           token: ${{ env.CODECOV_TOKEN }}
 
+      - name: Validate SonarCloud configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          missing=0
+          if [ -z "${SONAR_TOKEN}" ]; then
+            echo "Missing SONAR_TOKEN secret"
+            missing=1
+          fi
+          if [ -z "${SONAR_PROJECT_KEY}" ]; then
+            echo "Missing SONAR_PROJECT_KEY variable"
+            missing=1
+          fi
+          if [ -z "${SONAR_ORGANIZATION}" ]; then
+            echo "Missing SONAR_ORGANIZATION variable"
+            missing=1
+          fi
+          if [ "${missing}" -ne 0 ]; then
+            exit 1
+          fi
+
       - name: SonarCloud scan
-        if: ${{ env.SONAR_TOKEN != '' && env.SONAR_PROJECT_KEY != '' && env.SONAR_ORGANIZATION != '' }}
         uses: SonarSource/sonarqube-scan-action@2f77a1ec69fb1d595b06f35ab27e97605bdef703 # v5
         with:
           args: >
