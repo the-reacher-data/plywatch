@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
+from collections.abc import Collection
 
 from plywatch.shared.raw_events import RawCeleryEvent
 from plywatch.task.completed_repository import CompletedTaskSnapshotRepository
@@ -16,7 +17,9 @@ from plywatch.task.snapshot_reducer import TaskSnapshotReducer, build_task_snaps
 class TaskProjector:
     """Build consolidated task snapshots from the raw Celery event stream."""
 
-    handled_event_types = TASK_EVENTS
+    @property
+    def handled_event_types(self) -> Collection[str]:
+        return TASK_EVENTS
 
     def __init__(
         self,

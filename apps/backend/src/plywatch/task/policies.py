@@ -12,20 +12,36 @@ from plywatch.task.constants import COMPLETED_TASK_STATES
 class ScheduledTaskLike(Protocol):
     """Minimal task shape needed for schedule-origin policies."""
 
-    schedule_id: str | None
-    scheduled_for: str | None
-    state: str
-    last_seen_at: str
+    @property
+    def schedule_id(self) -> str | None: ...
+
+    @property
+    def scheduled_for(self) -> str | None: ...
+
+    @property
+    def state(self) -> str: ...
+
+    @property
+    def last_seen_at(self) -> str: ...
 
 
 class RunningTaskLike(Protocol):
     """Minimal task shape needed for liveness policies."""
 
-    uuid: str
-    state: str
-    received_at: str | None
-    started_at: str | None
-    worker_hostname: str | None
+    @property
+    def uuid(self) -> str: ...
+
+    @property
+    def state(self) -> str: ...
+
+    @property
+    def received_at(self) -> str | None: ...
+
+    @property
+    def started_at(self) -> str | None: ...
+
+    @property
+    def worker_hostname(self) -> str | None: ...
 
 
 def is_scheduled_task(task: ScheduledTaskLike) -> bool:

@@ -75,6 +75,8 @@ class ScheduleRunSnapshotRepository(Protocol):
 def build_schedule_run_snapshot_repository(context: RepositoryBuildContext) -> ScheduleRunSnapshotRepository:
     """Build the dedicated schedule-run repository for the current runtime."""
 
+    if context.container is None:
+        raise RuntimeError("Schedule run snapshot repository requires a DI container")
     settings = context.container.resolve(RuntimeSettings)
     return InMemoryScheduleRunSnapshotRepository(
         max_runs=settings.max_schedule_runs,

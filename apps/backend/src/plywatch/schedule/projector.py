@@ -2,15 +2,17 @@
 
 from __future__ import annotations
 
+from collections.abc import Collection
+
 from plywatch.shared.raw_events import RawCeleryEvent
 from plywatch.task.constants import TASK_EVENTS
-from plywatch.task.envelope import from_raw_task_event
+from plywatch.task.envelope import TaskEnvelope, from_raw_task_event
 from plywatch.task.snapshot_reducer import TaskSnapshotReducer
 
 from plywatch.schedule.repository import ScheduleRunSnapshot, ScheduleRunSnapshotRepository
 
 
-def build_schedule_run_snapshot(envelope) -> ScheduleRunSnapshot:
+def build_schedule_run_snapshot(envelope: TaskEnvelope) -> ScheduleRunSnapshot:
     """Create one new schedule-run snapshot from the first observed envelope."""
 
     return ScheduleRunSnapshot(
@@ -23,7 +25,9 @@ def build_schedule_run_snapshot(envelope) -> ScheduleRunSnapshot:
 class ScheduleProjector:
     """Persist only task runs that originate from observed schedules."""
 
-    handled_event_types = TASK_EVENTS
+    @property
+    def handled_event_types(self) -> Collection[str]:
+        return TASK_EVENTS
 
     def __init__(self, repository: ScheduleRunSnapshotRepository) -> None:
         self._repository = repository

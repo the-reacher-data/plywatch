@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Collection
+
 from plywatch.queue.repository import QueueSnapshotRepository
 from plywatch.shared.raw_events import RawCeleryEvent
 from plywatch.task.constants import TASK_EVENTS
@@ -11,7 +13,9 @@ from plywatch.task.envelope import from_raw_task_event
 class QueueProjector:
     """Build consolidated queue snapshots from observed task events."""
 
-    handled_event_types = TASK_EVENTS
+    @property
+    def handled_event_types(self) -> Collection[str]:
+        return TASK_EVENTS
 
     def __init__(self, repository: QueueSnapshotRepository) -> None:
         self._repository = repository

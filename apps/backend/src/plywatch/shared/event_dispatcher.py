@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from collections.abc import Iterable
+from collections.abc import Collection, Iterable
 from typing import Protocol
 
 from plywatch.shared.raw_events import RawCeleryEvent
@@ -12,10 +12,14 @@ from plywatch.shared.raw_events import RawCeleryEvent
 class EventHandler(Protocol):
     """Projection handler able to consume one raw event."""
 
-    handled_event_types: frozenset[str]
+    @property
+    def handled_event_types(self) -> Collection[str]:
+        """Return the event types handled by this projector."""
+        ...
 
     def apply(self, event: RawCeleryEvent) -> None:
         """Consume one routed raw event."""
+        ...
 
 
 class EventDispatcher:

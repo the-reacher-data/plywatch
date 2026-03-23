@@ -35,15 +35,19 @@ class QueueSnapshotRepository(Protocol):
 
     def list_recent(self, limit: int) -> list[QueueSnapshot]:
         """Return queues ordered by latest activity."""
+        ...
 
     def count(self) -> int:
         """Return the number of tracked queue snapshots."""
+        ...
 
     def remove_task(self, task_id: str) -> bool:
         """Remove one tracked task from queue live counts if present."""
+        ...
 
     def clear(self) -> int:
         """Remove all retained queue snapshots and live task entries."""
+        ...
 
 
 @dataclass
@@ -66,6 +70,8 @@ class _TrackedTask:
 
 def build_queue_snapshot_repository(context: RepositoryBuildContext) -> QueueSnapshotRepository:
     """Build the queue snapshot repository for the current app runtime."""
+    if context.container is None:
+        raise RuntimeError("Queue snapshot repository requires a DI container")
     settings = context.container.resolve(RuntimeSettings)
     return InMemoryQueueSnapshotRepository(max_age_seconds=settings.max_age_seconds)
 

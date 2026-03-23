@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Collection
+
 from plywatch.shared.raw_events import JsonValue, RawCeleryEvent
 from plywatch.worker.models import WorkerSnapshot
 from plywatch.worker.repository import WorkerSnapshotRepository
@@ -12,7 +14,9 @@ _WORKER_EVENT_TYPES = {"worker-online", "worker-heartbeat", "worker-offline"}
 class WorkerProjector:
     """Build consolidated worker snapshots from raw Celery worker events."""
 
-    handled_event_types = frozenset(_WORKER_EVENT_TYPES)
+    @property
+    def handled_event_types(self) -> Collection[str]:
+        return frozenset(_WORKER_EVENT_TYPES)
 
     def __init__(self, repository: WorkerSnapshotRepository) -> None:
         self._repository = repository

@@ -46,11 +46,13 @@ def build_schedule_summaries(
 ) -> tuple[ScheduleSummaryView, ...]:
     """Group observed scheduled task runs by schedule source."""
 
-    grouped: dict[str, list[TaskSnapshot]] = {}
+    grouped: dict[str, list[ScheduleRunSnapshot]] = {}
     for snapshot in snapshots:
         if not is_scheduled_task(snapshot) or snapshot.schedule_name is None:
             continue
-        grouped.setdefault(snapshot.schedule_id, []).append(snapshot)  # type: ignore[arg-type]
+        if snapshot.schedule_id is None:
+            continue
+        grouped.setdefault(snapshot.schedule_id, []).append(snapshot)
 
     summaries: list[ScheduleSummaryView] = []
     for schedule_id, items in grouped.items():

@@ -15,9 +15,52 @@ from plywatch.task.constants import (
     TASK_EVENT_SUCCEEDED,
 )
 from plywatch.task.envelope import TaskEnvelope
-from plywatch.task.models import TaskSnapshot, build_timeline_event, classify_task_kind
+from plywatch.task.models import (
+    CanvasKind,
+    CanvasRole,
+    TaskKind,
+    TaskSnapshot,
+    TaskState,
+    TaskTimelineEvent,
+    build_timeline_event,
+    classify_task_kind,
+)
 
-TSnapshot = TypeVar("TSnapshot", bound=TaskSnapshot)
+
+class ReducibleTaskSnapshot(Protocol):
+    """Minimal mutable snapshot shape required by the shared reducer."""
+
+    uuid: str
+    name: str | None
+    kind: TaskKind
+    state: TaskState
+    queue: str | None
+    routing_key: str | None
+    root_id: str | None
+    parent_id: str | None
+    worker_hostname: str | None
+    args_preview: str | None
+    kwargs_preview: str | None
+    canvas_kind: CanvasKind | None
+    canvas_id: str | None
+    canvas_role: CanvasRole | None
+    schedule_id: str | None
+    schedule_name: str | None
+    schedule_pattern: str | None
+    scheduled_for: str | None
+    retries: int
+    first_seen_at: str
+    last_seen_at: str
+    sent_at: str | None
+    received_at: str | None
+    started_at: str | None
+    finished_at: str | None
+    result_preview: str | None
+    exception_preview: str | None
+    events: list[TaskTimelineEvent]
+
+
+TSnapshot = TypeVar("TSnapshot", bound=ReducibleTaskSnapshot)
 _MAX_TIMELINE_EVENTS = 50
 
 
@@ -26,9 +69,11 @@ class TaskSnapshotReducerRepository(Protocol[TSnapshot]):
 
     def get(self, task_id: str) -> TSnapshot | None:
         """Return one retained task snapshot by UUID."""
+        ...
 
     def upsert(self, snapshot: TSnapshot) -> None:
         """Insert or replace one retained task snapshot."""
+        ...
 
 
 class TaskSnapshotReducer(Generic[TSnapshot]):
@@ -117,40 +162,40 @@ def build_task_snapshot(envelope: TaskEnvelope) -> TaskSnapshot:
     )
 
 
-def _set_sent_at(snapshot: TaskSnapshot, captured_at: str) -> None:
+def _set_sent_at(snapshot: ReducibleTaskSnapshot, captured_at: str) -> None:
     if snapshot.sent_at is None:
         snapshot.sent_at = captured_at
 
 
-def _set_received_at(snapshot: TaskSnapshot, captured_at: str) -> None:
+def _set_received_at(snapshot: ReducibleTaskSnapshot, captured_at: str) -> None:
     if snapshot.received_at is None:
         snapshot.received_at = captured_at
 
 
-def _set_started_at(snapshot: TaskSnapshot, captured_at: str) -> None:
+def _set_started_at(snapshot: ReducibleTaskSnapshot, captured_at: str) -> None:
     if snapshot.started_at is None:
         snapshot.started_at = captured_at
 
 
-def _set_finished_at(snapshot: TaskSnapshot, captured_at: str) -> None:
+def _set_finished_at(snapshot: ReducibleTaskSnapshot, captured_at: str) -> None:
     snapshot.finished_at = captured_at
 
 
-def _set_result_preview(snapshot: TaskSnapshot, envelope: TaskEnvelope) -> None:
+def _set_result_preview(snapshot: ReducibleTaskSnapshot, envelope: TaskEnvelope) -> None:
     if envelope.result_preview is not None:
         snapshot.result_preview = envelope.result_preview
 
 
-def _clear_exception_preview(snapshot: TaskSnapshot, _envelope: TaskEnvelope) -> None:
+def _clear_exception_preview(snapshot: ReducibleTaskSnapshot, _envelope: TaskEnvelope) -> None:
     snapshot.exception_preview = None
 
 
-def _set_exception_preview(snapshot: TaskSnapshot, envelope: TaskEnvelope) -> None:
+def _set_exception_preview(snapshot: ReducibleTaskSnapshot, envelope: TaskEnvelope) -> None:
     if envelope.exception_preview is not None:
         snapshot.exception_preview = envelope.exception_preview
 
 
-def _increment_retries(snapshot: TaskSnapshot, _envelope: TaskEnvelope) -> None:
+def _increment_retries(snapshot: ReducibleTaskSnapshot, _envelope: TaskEnvelope) -> None:
     snapshot.retries += 1
 
 
