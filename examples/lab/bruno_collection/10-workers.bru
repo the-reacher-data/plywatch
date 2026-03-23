@@ -1,0 +1,10 @@
+meta {
+  name: workers
+  type: http
+  seq: 11
+}
+
+get {
+  url: {{monitor_url}}/api/workers/?limit=20
+  body: none
+}

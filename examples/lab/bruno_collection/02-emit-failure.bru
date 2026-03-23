@@ -1,0 +1,19 @@
+meta {
+  name: emit failure
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{base_url}}/lab/emit
+  body: json
+}
+
+body:json {
+  {
+    "scenario": "failure",
+    "count": 1,
+    "with_callbacks": true,
+    "message": "failure from bruno"
+  }
+}

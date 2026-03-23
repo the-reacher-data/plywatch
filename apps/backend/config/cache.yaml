@@ -1,0 +1,13 @@
+cache:
+  enabled: true
+  aiocache_alias: default
+  counter_alias: counters
+  default_ttl: ${oc.decode:${oc.env:PLYWATCH_MAX_AGE_SECONDS,21600}}
+  default_list_ttl: ${oc.decode:${oc.env:PLYWATCH_MAX_AGE_SECONDS,21600}}
+  aiocache:
+    default:
+      cache: aiocache.SimpleMemoryCache
+      serializer:
+        class: loom.core.cache.serializer.MsgspecSerializer
+    counters:
+      cache: aiocache.SimpleMemoryCache

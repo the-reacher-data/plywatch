@@ -1,0 +1,12 @@
+includes:
+  - base.yaml
+  - cache.yaml
+  - celery.yaml
+
+trace:
+  enabled: ${oc.decode:${oc.env:TRACE_ENABLED,true}}
+
+metrics:
+  enabled: ${oc.decode:${oc.env:METRICS_ENABLED,true}}
+  path: ${oc.env:METRICS_PATH,/metrics}
+  adapters: [prometheus]

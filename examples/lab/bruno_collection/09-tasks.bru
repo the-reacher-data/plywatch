@@ -1,0 +1,10 @@
+meta {
+  name: tasks
+  type: http
+  seq: 10
+}
+
+get {
+  url: {{monitor_url}}/api/tasks/?limit=20
+  body: none
+}

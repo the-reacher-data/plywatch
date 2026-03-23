@@ -1,0 +1,19 @@
+meta {
+  name: emit parallel
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{base_url}}/lab/emit
+  body: json
+}
+
+body:json {
+  {
+    "scenario": "parallel",
+    "count": 4,
+    "with_callbacks": false,
+    "message": "parallel from bruno"
+  }
+}

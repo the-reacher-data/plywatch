@@ -1,0 +1,6 @@
+logger:
+  name: plywatch_lab
+  environment: ${oc.env:ENVIRONMENT,dev}
+  renderer: ${oc.env:LOG_RENDERER,console}
+  colors: ${oc.decode:${oc.env:LOG_COLORS,true}}
+  level: ${oc.env:LOG_LEVEL,INFO}

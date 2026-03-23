@@ -1,0 +1,19 @@
+meta {
+  name: emit success
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{base_url}}/lab/emit
+  body: json
+}
+
+body:json {
+  {
+    "scenario": "success",
+    "count": 1,
+    "with_callbacks": true,
+    "message": "success from bruno"
+  }
+}

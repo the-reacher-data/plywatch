@@ -1,0 +1,168 @@
+name: release
+
+on:
+  pull_request:
+    types: [closed]
+    branches: ["main"]
+  workflow_dispatch:
+    inputs:
+      source_branch:
+        description: "Branch used to compute semantic release version"
+        required: true
+        default: "main"
+
+permissions:
+  contents: write
+  packages: write
+  id-token: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event.pull_request.merged == true && !startsWith(github.event.pull_request.head.ref, 'docs/')) }}
+    runs-on: ubuntu-latest
+    env:
+      RELEASE_BRANCH: ${{ github.event_name == 'workflow_dispatch' && inputs.source_branch || github.event.pull_request.head.ref }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Compute release version from merged branch
+        id: version
+        uses: the-reacher-data/loom-actions/actions/release/versioning-branch-semantic@e731576f4f9cf4ec2b36fddfc895d328c856d29f # v1
+        with:
+          branch: ${{ env.RELEASE_BRANCH }}
+          prerelease: "false"
+
+      - name: Generate release changelog
+        id: changelog
+        if: ${{ steps.version.outputs.deploy == 'true' && github.event_name != 'workflow_dispatch' }}
+        uses: the-reacher-data/loom-actions/actions/release/changelog-conventional-commit@e731576f4f9cf4ec2b36fddfc895d328c856d29f # v1
+        with:
+          mode: "release"
+          branch: ${{ env.RELEASE_BRANCH }}
+          version: ${{ steps.version.outputs.version }}
+          pr-number: ${{ github.event.pull_request.number }}
+          output: CHANGELOG.md
+
+      - name: Generate fallback changelog for manual release
+        if: ${{ steps.version.outputs.deploy == 'true' && github.event_name == 'workflow_dispatch' }}
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          SOURCE_BRANCH: ${{ env.RELEASE_BRANCH }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > CHANGELOG.md <<EOF
+          # Release v${VERSION}
+
+          Manual release triggered from branch: ${SOURCE_BRANCH}
+          EOF
+
+      - name: Sync project version
+        if: ${{ steps.version.outputs.deploy == 'true' }}
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          sed -i "0,/^version = \".*\"/s//version = \"${VERSION}\"/" pyproject.toml
+          sed -i "0,/^version = \".*\"/s//version = \"${VERSION}\"/" apps/backend/pyproject.toml
+
+      - name: Commit release metadata
+        if: ${{ steps.version.outputs.deploy == 'true' }}
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add pyproject.toml apps/backend/pyproject.toml CHANGELOG.md
+          if git diff --cached --quiet; then
+            echo "No release metadata changes to commit"
+            exit 0
+          fi
+          git commit -m "release: v${VERSION}"
+          git push origin HEAD:main
+
+      - name: Set up QEMU (multi-arch cross-compilation)
+        if: ${{ steps.version.outputs.deploy == 'true' }}
+        uses: docker/setup-qemu-action@29109295f81e9208d7d86ff9c6f70e1ff1b4cc3e # v3
+
+      - name: Set up Docker Buildx
+        if: ${{ steps.version.outputs.deploy == 'true' }}
+        uses: docker/setup-buildx-action@b5ca514318bd6ebac0fb2aedd5d36ec1b5c232a2 # v3
+
+      - name: Log in to GitHub Container Registry
+        if: ${{ steps.version.outputs.deploy == 'true' }}
+        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compute Docker image metadata and tags
+        id: meta
+        if: ${{ steps.version.outputs.deploy == 'true' }}
+        uses: docker/metadata-action@902fa8ec7d6ecbea8a986b1b2d68f75f9d4fa3e1 # v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/plywatch
+          tags: |
+            type=semver,pattern=v{{version}},value=${{ steps.version.outputs.version }}
+            type=semver,pattern=v{{major}},value=${{ steps.version.outputs.version }}
+            type=raw,value=latest
+          labels: |
+            org.opencontainers.image.title=plywatch
+            org.opencontainers.image.description=Ephemeral Celery monitoring — self-contained container with embedded web UI
+            org.opencontainers.image.url=https://github.com/${{ github.repository }}
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.version=${{ steps.version.outputs.version }}
+
+      - name: Build and push multi-arch image (linux/amd64, linux/arm64)
+        if: ${{ steps.version.outputs.deploy == 'true' }}
+        uses: docker/build-push-action@471d1dc4e07e5cdedd4c2171150001c434f0b7b4 # v6
+        with:
+          context: .
+          file: docker/app.Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Create and push version tags
+        if: ${{ steps.version.outputs.deploy == 'true' }}
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          if git rev-parse "v${VERSION}" >/dev/null 2>&1; then
+            echo "Tag v${VERSION} already exists; skipping"
+            exit 0
+          fi
+
+          git tag "v${VERSION}"
+          git push origin "v${VERSION}"
+
+          MAJOR=$(echo "${VERSION}" | cut -d. -f1)
+          git push origin ":refs/tags/v${MAJOR}" || true
+          git tag -fa "v${MAJOR}" -m "Release v${VERSION}"
+          git push origin "v${MAJOR}" --force
+
+      - name: Create GitHub release
+        if: ${{ steps.version.outputs.deploy == 'true' }}
+        uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2
+        with:
+          tag_name: v${{ steps.version.outputs.version }}
+          name: v${{ steps.version.outputs.version }}
+          body_path: CHANGELOG.md

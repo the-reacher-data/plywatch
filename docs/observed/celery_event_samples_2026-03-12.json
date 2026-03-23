@@ -1,0 +1,175 @@
+{
+  "captured_at": 1773319458.397181,
+  "counts": [
+    {
+      "event_type": "task-failed",
+      "count": 2
+    },
+    {
+      "event_type": "task-received",
+      "count": 10
+    },
+    {
+      "event_type": "task-retried",
+      "count": 2
+    },
+    {
+      "event_type": "task-sent",
+      "count": 10
+    },
+    {
+      "event_type": "task-started",
+      "count": 10
+    },
+    {
+      "event_type": "task-succeeded",
+      "count": 6
+    },
+    {
+      "event_type": "worker-heartbeat",
+      "count": 460
+    }
+  ],
+  "samples": {
+    "worker_heartbeat": {
+      "captured_at": "2026-03-12T12:41:16.877476+00:00",
+      "event_type": "worker-heartbeat",
+      "uuid": null,
+      "hostname": "celery@b3d5810e88a8",
+      "payload": {
+        "hostname": "celery@b3d5810e88a8",
+        "utcoffset": 0,
+        "pid": 1,
+        "clock": 1357,
+        "freq": 5,
+        "sw_ident": "py-celery",
+        "sw_ver": "5.6.2",
+        "sw_sys": "Linux",
+        "timestamp": 1773319276.8766975,
+        "type": "worker-heartbeat",
+        "local_received": 1773319276.877462
+      }
+    },
+    "task_sent": {
+      "captured_at": "2026-03-12T12:38:57.229689+00:00",
+      "event_type": "task-sent",
+      "uuid": "5e82556c-c5f0-49ae-abb2-f982d9c445ca",
+      "hostname": "gen10@b3d5810e88a8",
+      "payload": {
+        "hostname": "gen10@b3d5810e88a8",
+        "utcoffset": 0,
+        "pid": 10,
+        "clock": 8669,
+        "uuid": "5e82556c-c5f0-49ae-abb2-f982d9c445ca",
+        "root_id": "9a21b4d7-ed57-47ab-b9f8-d3a9197c64ee",
+        "parent_id": "9a21b4d7-ed57-47ab-b9f8-d3a9197c64ee",
+        "name": "loom.callback_error.RecordFailureCallback",
+        "args": "()",
+        "kwargs": "{'job_id': '9a21b4d7-ed57-47ab-b9f8-d3a9197c64ee', 'context': {'scenario': 'retry', 'count': 1, 'with_callbacks': True, 'delay_seconds': 2, 'message': 'second retry'}, 'trace_id': None}",
+        "retries": 0,
+        "eta": null,
+        "expires": null,
+        "queue": "default",
+        "exchange": "",
+        "routing_key": "default",
+        "timestamp": 1773319137.228788,
+        "type": "task-sent",
+        "local_received": 1773319137.2296553
+      }
+    },
+    "task_received": {
+      "captured_at": "2026-03-12T12:38:57.230172+00:00",
+      "event_type": "task-received",
+      "uuid": "5e82556c-c5f0-49ae-abb2-f982d9c445ca",
+      "hostname": "celery@b3d5810e88a8",
+      "payload": {
+        "hostname": "celery@b3d5810e88a8",
+        "utcoffset": 0,
+        "pid": 1,
+        "clock": 1005,
+        "uuid": "5e82556c-c5f0-49ae-abb2-f982d9c445ca",
+        "name": "loom.callback_error.RecordFailureCallback",
+        "args": "()",
+        "kwargs": "{'job_id': '9a21b4d7-ed57-47ab-b9f8-d3a9197c64ee', 'context': {'scenario': 'retry', 'count': 1, 'with_callbacks': True, 'delay_seconds': 2, 'message': 'second retry'}, 'trace_id': None}",
+        "root_id": "9a21b4d7-ed57-47ab-b9f8-d3a9197c64ee",
+        "parent_id": "9a21b4d7-ed57-47ab-b9f8-d3a9197c64ee",
+        "retries": 0,
+        "eta": null,
+        "expires": null,
+        "timestamp": 1773319137.2294812,
+        "type": "task-received",
+        "local_received": 1773319137.2301655
+      }
+    },
+    "task_started": {
+      "captured_at": "2026-03-12T12:38:57.231607+00:00",
+      "event_type": "task-started",
+      "uuid": "5e82556c-c5f0-49ae-abb2-f982d9c445ca",
+      "hostname": "celery@b3d5810e88a8",
+      "payload": {
+        "hostname": "celery@b3d5810e88a8",
+        "utcoffset": 0,
+        "pid": 1,
+        "clock": 1006,
+        "uuid": "5e82556c-c5f0-49ae-abb2-f982d9c445ca",
+        "timestamp": 1773319137.2307656,
+        "type": "task-started",
+        "local_received": 1773319137.2315993
+      }
+    },
+    "task_succeeded": {
+      "captured_at": "2026-03-12T12:38:57.235050+00:00",
+      "event_type": "task-succeeded",
+      "uuid": "5e82556c-c5f0-49ae-abb2-f982d9c445ca",
+      "hostname": "celery@b3d5810e88a8",
+      "payload": {
+        "hostname": "celery@b3d5810e88a8",
+        "utcoffset": 0,
+        "pid": 1,
+        "clock": 1008,
+        "uuid": "5e82556c-c5f0-49ae-abb2-f982d9c445ca",
+        "result": "None",
+        "runtime": 0.002457417009281926,
+        "timestamp": 1773319137.234467,
+        "type": "task-succeeded",
+        "local_received": 1773319137.2350469
+      }
+    },
+    "task_failed": {
+      "captured_at": "2026-03-12T12:38:57.234000+00:00",
+      "event_type": "task-failed",
+      "uuid": "9a21b4d7-ed57-47ab-b9f8-d3a9197c64ee",
+      "hostname": "celery@b3d5810e88a8",
+      "payload": {
+        "hostname": "celery@b3d5810e88a8",
+        "utcoffset": 0,
+        "pid": 1,
+        "clock": 1007,
+        "uuid": "9a21b4d7-ed57-47ab-b9f8-d3a9197c64ee",
+        "exception": "RuntimeError('lab retry: second retry')",
+        "traceback": "Traceback (most recent call last):\n  File \"/usr/local/lib/python3.11/site-packages/celery/app/trace.py\", line 479, in trace_task\n    R = retval = fun(*args, **kwargs)\n                 ^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/local/lib/python3.11/site-packages/celery/app/trace.py\", line 779, in __protected_call__\n    return self.run(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/local/lib/python3.11/site-packages/loom/celery/runner.py\", line 224, in _job_task\n    result = _run_corout",
+        "timestamp": 1773319137.2332728,
+        "type": "task-failed",
+        "local_received": 1773319137.2339947
+      }
+    },
+    "task_retried": {
+      "captured_at": "2026-03-12T12:38:55.220849+00:00",
+      "event_type": "task-retried",
+      "uuid": "9a21b4d7-ed57-47ab-b9f8-d3a9197c64ee",
+      "hostname": "celery@b3d5810e88a8",
+      "payload": {
+        "hostname": "celery@b3d5810e88a8",
+        "utcoffset": 0,
+        "pid": 1,
+        "clock": 998,
+        "uuid": "9a21b4d7-ed57-47ab-b9f8-d3a9197c64ee",
+        "exception": "RuntimeError('lab retry: second retry')",
+        "traceback": "Traceback (most recent call last):\n  File \"/usr/local/lib/python3.11/site-packages/loom/celery/runner.py\", line 224, in _job_task\n    result = _run_coroutine(\n             ^^^^^^^^^^^^^^^\n  File \"/usr/local/lib/python3.11/site-packages/loom/celery/runner.py\", line 104, in _run_coroutine\n    return WorkerEventLoop.run(coro, timeout=timeout)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/local/lib/python3.11/site-packages/loom/celery/event_loop.py\", line 127, in run\n    return ",
+        "timestamp": 1773319135.2200992,
+        "type": "task-retried",
+        "local_received": 1773319135.220843
+      }
+    }
+  }
+}

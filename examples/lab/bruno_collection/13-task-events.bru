@@ -1,0 +1,10 @@
+meta {
+  name: task events
+  type: http
+  seq: 14
+}
+
+get {
+  url: {{monitor_url}}/api/tasks/{{task_id}}/events
+  body: none
+}

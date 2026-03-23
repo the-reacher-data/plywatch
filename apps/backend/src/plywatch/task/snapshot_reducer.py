@@ -1,0 +1,169 @@
+"""Shared reducer that projects raw Celery task events into retained snapshots."""
+
+from __future__ import annotations
+
+from collections.abc import Callable
+from typing import Generic, Protocol, TypeVar
+
+from plywatch.shared.raw_events import RawCeleryEvent
+from plywatch.task.constants import (
+    TASK_EVENT_FAILED,
+    TASK_EVENT_RECEIVED,
+    TASK_EVENT_RETRIED,
+    TASK_EVENT_SENT,
+    TASK_EVENT_STARTED,
+    TASK_EVENT_SUCCEEDED,
+)
+from plywatch.task.envelope import TaskEnvelope
+from plywatch.task.models import TaskSnapshot, build_timeline_event, classify_task_kind
+
+TSnapshot = TypeVar("TSnapshot", bound=TaskSnapshot)
+_MAX_TIMELINE_EVENTS = 50
+
+
+class TaskSnapshotReducerRepository(Protocol[TSnapshot]):
+    """Minimal persistence contract needed by the task snapshot reducer."""
+
+    def get(self, task_id: str) -> TSnapshot | None:
+        """Return one retained task snapshot by UUID."""
+
+    def upsert(self, snapshot: TSnapshot) -> None:
+        """Insert or replace one retained task snapshot."""
+
+
+class TaskSnapshotReducer(Generic[TSnapshot]):
+    """Apply normalized task envelopes to one snapshot repository."""
+
+    def __init__(
+        self,
+        repository: TaskSnapshotReducerRepository[TSnapshot],
+        *,
+        snapshot_factory: Callable[[TaskEnvelope], TSnapshot],
+    ) -> None:
+        self._repository = repository
+        self._snapshot_factory = snapshot_factory
+
+    def apply_envelope(self, envelope: TaskEnvelope, event: RawCeleryEvent) -> TSnapshot:
+        """Apply one normalized task event to the target repository."""
+
+        current = self._repository.get(envelope.task_id)
+        snapshot = current if current is not None else self._snapshot_factory(envelope)
+        self._merge_identity(snapshot, envelope)
+        self._merge_state(snapshot, envelope)
+        snapshot.last_seen_at = envelope.captured_at
+        if not snapshot.first_seen_at:
+            snapshot.first_seen_at = envelope.captured_at
+        snapshot.events.append(build_timeline_event(event))
+        if len(snapshot.events) > _MAX_TIMELINE_EVENTS:
+            del snapshot.events[:-_MAX_TIMELINE_EVENTS]
+        self._repository.upsert(snapshot)
+        return snapshot
+
+    def _merge_identity(self, snapshot: TSnapshot, envelope: TaskEnvelope) -> None:
+        if envelope.name is not None:
+            snapshot.name = envelope.name
+            classified_kind = classify_task_kind(envelope.name)
+            if classified_kind != "unknown" or snapshot.kind == "unknown":
+                snapshot.kind = classified_kind
+
+        if envelope.queue_name is not None:
+            snapshot.queue = envelope.queue_name
+
+        if envelope.routing_key is not None:
+            snapshot.routing_key = envelope.routing_key
+
+        if envelope.root_id is not None:
+            snapshot.root_id = envelope.root_id
+
+        if envelope.parent_id is not None:
+            snapshot.parent_id = envelope.parent_id
+
+        snapshot.worker_hostname = envelope.hostname or snapshot.worker_hostname
+        snapshot.args_preview = envelope.args_preview or snapshot.args_preview
+        snapshot.kwargs_preview = envelope.kwargs_preview or snapshot.kwargs_preview
+
+        if envelope.canvas_kind is not None:
+            snapshot.canvas_kind = envelope.canvas_kind
+            snapshot.canvas_id = envelope.canvas_id
+            snapshot.canvas_role = envelope.canvas_role
+            if snapshot.kind == "unknown":
+                snapshot.kind = "job"
+
+        if envelope.schedule_id is not None:
+            snapshot.schedule_id = envelope.schedule_id
+            snapshot.schedule_name = envelope.schedule_name
+            snapshot.schedule_pattern = envelope.schedule_pattern
+
+        if envelope.scheduled_for is not None:
+            snapshot.scheduled_for = envelope.scheduled_for
+
+    def _merge_state(self, snapshot: TSnapshot, envelope: TaskEnvelope) -> None:
+        snapshot.state = envelope.state
+
+        for update in _TIMESTAMP_UPDATERS.get(envelope.event_type, ()):
+            update(snapshot, envelope.captured_at)
+
+        for update in _PAYLOAD_UPDATERS.get(envelope.event_type, ()):
+            update(snapshot, envelope)
+
+
+def build_task_snapshot(envelope: TaskEnvelope) -> TaskSnapshot:
+    """Create one new task snapshot from the first observed envelope."""
+
+    return TaskSnapshot(
+        uuid=envelope.task_id,
+        first_seen_at=envelope.captured_at,
+        last_seen_at=envelope.captured_at,
+    )
+
+
+def _set_sent_at(snapshot: TaskSnapshot, captured_at: str) -> None:
+    if snapshot.sent_at is None:
+        snapshot.sent_at = captured_at
+
+
+def _set_received_at(snapshot: TaskSnapshot, captured_at: str) -> None:
+    if snapshot.received_at is None:
+        snapshot.received_at = captured_at
+
+
+def _set_started_at(snapshot: TaskSnapshot, captured_at: str) -> None:
+    if snapshot.started_at is None:
+        snapshot.started_at = captured_at
+
+
+def _set_finished_at(snapshot: TaskSnapshot, captured_at: str) -> None:
+    snapshot.finished_at = captured_at
+
+
+def _set_result_preview(snapshot: TaskSnapshot, envelope: TaskEnvelope) -> None:
+    if envelope.result_preview is not None:
+        snapshot.result_preview = envelope.result_preview
+
+
+def _clear_exception_preview(snapshot: TaskSnapshot, _envelope: TaskEnvelope) -> None:
+    snapshot.exception_preview = None
+
+
+def _set_exception_preview(snapshot: TaskSnapshot, envelope: TaskEnvelope) -> None:
+    if envelope.exception_preview is not None:
+        snapshot.exception_preview = envelope.exception_preview
+
+
+def _increment_retries(snapshot: TaskSnapshot, _envelope: TaskEnvelope) -> None:
+    snapshot.retries += 1
+
+
+_TIMESTAMP_UPDATERS: dict[str, tuple] = {
+    TASK_EVENT_SENT: (_set_sent_at,),
+    TASK_EVENT_RECEIVED: (_set_received_at,),
+    TASK_EVENT_STARTED: (_set_started_at,),
+    TASK_EVENT_SUCCEEDED: (_set_finished_at,),
+    TASK_EVENT_FAILED: (_set_finished_at,),
+}
+
+_PAYLOAD_UPDATERS: dict[str, tuple] = {
+    TASK_EVENT_SUCCEEDED: (_set_result_preview, _clear_exception_preview),
+    TASK_EVENT_FAILED: (_set_exception_preview,),
+    TASK_EVENT_RETRIED: (_set_exception_preview, _increment_retries),
+}

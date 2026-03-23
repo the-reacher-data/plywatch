@@ -1,0 +1,20 @@
+meta {
+  name: emit slow
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{producer_url}}/lab/emit
+  body: json
+}
+
+body:json {
+  {
+    "scenario": "slow",
+    "count": 1,
+    "with_callbacks": true,
+    "delay_seconds": 5,
+    "message": "slow from bruno"
+  }
+}

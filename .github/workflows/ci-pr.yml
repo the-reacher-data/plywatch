@@ -1,0 +1,256 @@
+name: ci-pr
+
+on:
+  pull_request:
+    branches: ["main"]
+
+permissions:
+  contents: read
+  pull-requests: write
+  security-events: write
+  packages: read
+
+jobs:
+  backend:
+    name: Backend — quality & test
+    runs-on: ubuntu-latest
+    env:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+      SONAR_PROJECT_KEY: ${{ vars.SONAR_PROJECT_KEY }}
+      SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.11"
+
+      - uses: astral-sh/setup-uv@caf0cab7a618c569241d31dcd442f54681755d39 # v3
+
+      - name: Configure uv environment path
+        shell: bash
+        run: echo "UV_PROJECT_ENVIRONMENT=$RUNNER_TEMP/uv-ci-pr" >> "$GITHUB_ENV"
+
+      - name: Fetch PR base branch for changelog diff
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --prune origin \
+            "+refs/heads/${{ github.base_ref }}:refs/remotes/origin/${{ github.base_ref }}"
+
+      - name: Quality report (strict gate)
+        id: quality
+        continue-on-error: true
+        uses: the-reacher-data/loom-actions/actions/python/quality-report@e731576f4f9cf4ec2b36fddfc895d328c856d29f # v1
+        with:
+          src-dir: apps/backend/src
+          test-dir: apps/backend/tests
+          coverage-threshold: "80"
+          fail-on-quality: "any"
+          fail-on-security: "high"
+          include-security: "true"
+
+      - name: Publish PR quality comment
+        if: ${{ always() && steps.quality.outputs.report-file != '' }}
+        uses: the-reacher-data/loom-actions/actions/core/pr-comment-update@e731576f4f9cf4ec2b36fddfc895d328c856d29f # v1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          tags: "<!-- plywatch-quality-report -->"
+          body-file: ${{ steps.quality.outputs.report-file }}
+
+      - name: Compute candidate prerelease version
+        id: version
+        uses: the-reacher-data/loom-actions/actions/release/versioning-branch-semantic@e731576f4f9cf4ec2b36fddfc895d328c856d29f # v1
+        with:
+          branch: ${{ github.head_ref }}
+          prerelease: "true"
+
+      - name: Generate changelog preview
+        id: changelog
+        continue-on-error: true
+        uses: the-reacher-data/loom-actions/actions/release/changelog-conventional-commit@e731576f4f9cf4ec2b36fddfc895d328c856d29f # v1
+        with:
+          mode: "pr"
+          branch: ${{ github.event.pull_request.head.sha }}
+          version: ${{ steps.version.outputs.deploy == 'true' && steps.version.outputs.version || 'UNRELEASED' }}
+          pr-number: ${{ github.event.pull_request.number }}
+          base-ref: origin/${{ github.base_ref }}
+          output: changelog_preview.md
+
+      - name: Publish PR changelog comment
+        if: ${{ steps.changelog.outcome == 'success' && steps.changelog.outputs.output_path != '' }}
+        uses: the-reacher-data/loom-actions/actions/core/pr-comment-update@e731576f4f9cf4ec2b36fddfc895d328c856d29f # v1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          tags: "<!-- changelog-preview -->,<!-- branch-source:${{ github.head_ref }} -->"
+          body-file: ${{ steps.changelog.outputs.output_path }}
+
+      - name: Run pytest with coverage and JUnit output
+        shell: bash
+        run: |
+          set -euo pipefail
+          uv run --with pytest-cov pytest \
+            --cov=apps/backend/src/plywatch \
+            --cov-report=xml:coverage.xml \
+            --junitxml=junit.xml \
+            -o junit_family=legacy
+
+      - name: Upload coverage to Codecov
+        if: ${{ hashFiles('coverage.xml') != '' }}
+        uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de # v5
+        with:
+          files: ./coverage.xml
+          fail_ci_if_error: false
+          token: ${{ env.CODECOV_TOKEN }}
+
+      - name: Upload test results to Codecov
+        if: ${{ !cancelled() && hashFiles('junit.xml') != '' }}
+        uses: codecov/test-results-action@0fa95f0e1eeaafde2c782583b36b28ad0d8c77d3 # v1
+        with:
+          token: ${{ env.CODECOV_TOKEN }}
+
+      - name: SonarQube scan
+        if: ${{ env.SONAR_TOKEN != '' && env.SONAR_HOST_URL != '' && env.SONAR_PROJECT_KEY != '' }}
+        uses: SonarSource/sonarqube-scan-action@2f77a1ec69fb1d595b06f35ab27e97605bdef703 # v5
+        with:
+          args: >
+            -Dsonar.projectKey=${{ env.SONAR_PROJECT_KEY }}
+        env:
+          SONAR_TOKEN: ${{ env.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ env.SONAR_HOST_URL }}
+
+      - name: Setup Snyk CLI
+        if: ${{ env.SNYK_TOKEN != '' }}
+        uses: snyk/actions/setup@9adf32b1121593767fc3c057af55b55db032dc04 # master
+
+      - name: Snyk — Python dependency scan
+        id: snyk-python
+        if: ${{ env.SNYK_TOKEN != '' }}
+        continue-on-error: true
+        shell: bash
+        env:
+          SNYK_TOKEN: ${{ env.SNYK_TOKEN }}
+        run: |
+          set -euo pipefail
+          MANIFEST_DIR="$RUNNER_TEMP/snyk-manifests"
+          mkdir -p "$MANIFEST_DIR"
+          uv export --frozen --no-hashes --no-emit-project \
+            -o "$MANIFEST_DIR/requirements.txt"
+          uv export --frozen --only-group dev --no-hashes --no-emit-project \
+            -o "$MANIFEST_DIR/requirements-dev.txt"
+          python -m pip install -r "$MANIFEST_DIR/requirements.txt"
+          snyk test --severity-threshold=high --skip-unresolved \
+            --file="$MANIFEST_DIR/requirements.txt" \
+            --package-manager=pip \
+            --project-name="plywatch/python"
+
+      - name: Enforce changelog generation
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${{ steps.changelog.outcome }}" != "success" ]; then
+            echo "Changelog preview generation failed"
+            exit 1
+          fi
+
+      - name: Enforce quality gate
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${{ steps.quality.outcome }}" != "success" ] || [ "${{ steps.quality.outputs.blocking }}" = "true" ]; then
+            echo "Blocking quality/security conditions detected"
+            exit 1
+          fi
+
+  frontend:
+    name: Frontend — lint, typecheck, test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    env:
+      SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@cdca7365b2dadb8aad0a33bc7601856ffabcc48e # v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: apps/web/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run check
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Setup Snyk CLI
+        if: ${{ env.SNYK_TOKEN != '' }}
+        uses: snyk/actions/setup@9adf32b1121593767fc3c057af55b55db032dc04 # master
+
+      - name: Snyk — Node dependency scan
+        if: ${{ env.SNYK_TOKEN != '' }}
+        continue-on-error: true
+        env:
+          SNYK_TOKEN: ${{ env.SNYK_TOKEN }}
+        run: |
+          snyk test --severity-threshold=high --skip-unresolved \
+            --project-name="plywatch/web"
+
+  docker:
+    name: Docker — build & scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - uses: docker/setup-buildx-action@b5ca514318bd6ebac0fb2aedd5d36ec1b5c232a2 # v3
+
+      - name: Build image (load, no push)
+        uses: docker/build-push-action@471d1dc4e07e5cdedd4c2171150001c434f0b7b4 # v6
+        with:
+          context: .
+          file: docker/app.Dockerfile
+          push: false
+          load: true
+          tags: plywatch:ci-${{ github.event.pull_request.number }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Trivy — generate SARIF report (HIGH + CRITICAL)
+        uses: aquasecurity/trivy-action@6e7b7d1fd3e4fef0c5fa8cce1229c54b2c9bd0d8 # v0.28.0
+        with:
+          image-ref: plywatch:ci-${{ github.event.pull_request.number }}
+          format: sarif
+          output: trivy.sarif
+          severity: HIGH,CRITICAL
+          exit-code: "0"
+
+      - name: Upload Trivy results to GitHub Security tab
+        if: ${{ always() && hashFiles('trivy.sarif') != '' }}
+        uses: github/codeql-action/upload-sarif@ff0a06e83cb2de871e5a09832bc6a81e7276941f # v3
+        with:
+          sarif_file: trivy.sarif
+
+      - name: Trivy — enforce CRITICAL gate
+        uses: aquasecurity/trivy-action@6e7b7d1fd3e4fef0c5fa8cce1229c54b2c9bd0d8 # v0.28.0
+        with:
+          image-ref: plywatch:ci-${{ github.event.pull_request.number }}
+          format: table
+          severity: CRITICAL
+          exit-code: "1"

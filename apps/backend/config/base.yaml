@@ -1,0 +1,25 @@
+app:
+  name: plywatch
+  code_path: ../src
+  discovery:
+    mode: manifest
+    manifest:
+      module: app.manifest
+  rest:
+    backend: fastapi
+    title: Plywatch API
+    version: 0.1.0
+    docs_url: /docs
+    redoc_url: /redoc
+
+logger:
+  name: plywatch
+  environment: ${oc.env:ENVIRONMENT,dev}
+  renderer: ${oc.env:LOG_RENDERER,console}
+  colors: ${oc.decode:${oc.env:LOG_COLORS,true}}
+  level: ${oc.env:LOG_LEVEL,INFO}
+  named_levels:
+    celery: WARNING
+    kombu: WARNING
+    amqp: WARNING
+    redis: WARNING

@@ -1,0 +1,67 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background:    #f6f7f9;
+    --foreground:    #111827;
+    --card:          #ffffff;
+    --border:        #e2e6eb;
+    --accent:        #2563eb;
+    --accent-soft:   #eff6ff;
+
+    /* Celery event stream color palette */
+    --event-success: #15803d;
+    --event-active:  #1d4ed8;
+    --event-warn:    #b45309;
+    --event-danger:  #b91c1c;
+    --event-neutral: #6b7280;
+    --event-signal:  #6d28d9;
+  }
+
+  body {
+    background: var(--background);
+    color: var(--foreground);
+  }
+
+  @keyframes dot-pulse {
+    0%, 100% { box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.2); }
+    50%       { box-shadow: 0 0 0 5px rgba(22, 163, 74, 0.06); }
+  }
+}
+
+@layer components {
+  /*
+   * Tone background — used dynamically: class="tone-{tone}"
+   * Must be global (not scoped) because class names are interpolated at runtime.
+   */
+  .tone-neutral  { background-color: #9ca3af; }
+  .tone-active   { background-color: #2563eb; }
+  .tone-retrying { background-color: #d97706; }
+  .tone-success  { background-color: #16a34a; }
+  .tone-danger   { background-color: #dc2626; }
+
+  /*
+   * Tone badge — used dynamically: class="tone-badge-{tone}"
+   */
+  .tone-badge-neutral  { background: #f3f4f6; color: #6b7280; }
+  .tone-badge-active   { background: #eff6ff; color: #1d4ed8; }
+  .tone-badge-retrying { background: #fffbeb; color: #b45309; }
+  .tone-badge-success  { background: #f0fdf4; color: #15803d; }
+  .tone-badge-danger   { background: #fef2f2; color: #b91c1c; }
+
+  /*
+   * Popover panel shell — applied via bits-ui Popover.Content class prop.
+   */
+  .popover-panel {
+    z-index: 20;
+    width: 16rem;
+    padding: 0.8rem 0.9rem;
+    border: 1px solid #e2e6eb;
+    border-radius: 6px;
+    background: #ffffff;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.10);
+    text-align: left;
+  }
+}
