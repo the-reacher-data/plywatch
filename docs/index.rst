@@ -15,6 +15,9 @@ The docs here are intentionally short:
    :maxdepth: 2
    :caption: Guides
 
+   README
    guides/quickstart
    guides/configuration
    guides/architecture
+   observed/celery_observed_events
+   observed/celery_worker_observed_events

@@ -18,6 +18,6 @@
 
 ## Related references
 
-- repository overview in [README](../../README.md)
+- repository overview in [docs overview](../README.md)
 - loom-py architecture docs: <https://loom-py.readthedocs.io/en/latest/architecture/overview.html>
 - Celery monitoring guide: <https://docs.celeryq.dev/en/stable/userguide/monitoring.html>
