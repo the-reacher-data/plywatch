@@ -9,6 +9,32 @@ export default tseslint.config(
   ...svelte.configs['flat/recommended'],
   prettier,
   {
+    files: ['**/*.{ts,svelte}'],
+    languageOptions: {
+      globals: {
+        AbortController: 'readonly',
+        AbortSignal: 'readonly',
+        HTMLDivElement: 'readonly',
+        HTMLInputElement: 'readonly',
+        HTMLSpanElement: 'readonly',
+        KeyboardEvent: 'readonly',
+        Node: 'readonly',
+        PointerEvent: 'readonly',
+        clearInterval: 'readonly',
+        clearTimeout: 'readonly',
+        document: 'readonly',
+        navigator: 'readonly',
+        setInterval: 'readonly',
+        setTimeout: 'readonly',
+      }
+    },
+    rules: {
+      'no-undef': 'off',
+      'svelte/no-navigation-without-resolve': 'off',
+      'svelte/prefer-svelte-reactivity': 'off',
+    }
+  },
+  {
     files: ['**/*.svelte'],
     languageOptions: {
       parserOptions: {

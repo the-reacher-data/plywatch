@@ -6,6 +6,7 @@ import asyncio
 from collections.abc import AsyncIterator, Callable
 import contextlib
 from contextlib import asynccontextmanager
+import logging
 from pathlib import Path
 from typing import Any
 
@@ -83,6 +84,8 @@ from plywatch.worker.models import WorkerSnapshot
 from plywatch.worker.projector import WorkerProjector
 from plywatch.worker.repository import WorkerSnapshotRepository
 from plywatch.worker.use_cases import ListWorkersUseCase
+
+logger = logging.getLogger(__name__)
 
 
 class MonitorIdsPayload(BaseModel):
@@ -212,6 +215,7 @@ def create_app(*, start_consumer: bool = True) -> FastAPI:
             try:
                 result = task_liveness_reconciler.reconcile()
             except Exception:
+                logger.exception("Task liveness reconciliation failed")
                 continue
             for task_id in result.updated_task_ids:
                 sse_fanout.publish(

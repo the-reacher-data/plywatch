@@ -6,7 +6,8 @@ from plywatch.main import create_app
 from plywatch.shared.raw_events import build_raw_event
 
 
-def test_worker_endpoints_expose_consolidated_views() -> None:
+def test_worker_endpoints_expose_consolidated_views(monkeypatch) -> None:
+    monkeypatch.setenv("METRICS_ENABLED", "false")
     app = create_app(start_consumer=False)
     worker_projector = app.state.worker_projector
     raw_store = app.state.raw_event_store

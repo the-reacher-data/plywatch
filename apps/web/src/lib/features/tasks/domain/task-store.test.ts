@@ -4,7 +4,6 @@ import { get } from 'svelte/store';
 import type {
   CursorPage,
   QueueSummary,
-  StreamEvent,
   TaskDetail,
   TaskGraph,
   TaskSectionCounts,
@@ -107,7 +106,7 @@ function buildClient(
     async listRawEvents() {
       return { items: [], count: 0, limit: 120 };
     },
-    createStream(_onEvent: (event: StreamEvent) => void) {
+    createStream() {
       return { close() {} };
     },
     ...overrides,

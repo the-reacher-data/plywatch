@@ -151,7 +151,8 @@
   });
 
   $effect(() => {
-    taskId;
+    const currentTaskId = taskId;
+    if (currentTaskId === null) return;
     timelineOpen = false;
   });
 

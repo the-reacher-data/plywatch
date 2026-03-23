@@ -97,17 +97,6 @@
       : (dagPhases.find((phase) => phase.nodes.some((node) => node.id === selectedTaskId))?.key ?? null)
   );
 
-  function stateLabel(state: string): string {
-    if (state === 'sent') return 'Queued';
-    if (state === 'received') return 'Received';
-    if (state === 'started') return 'Running';
-    if (state === 'retrying') return 'Retrying';
-    if (state === 'succeeded') return 'Succeeded';
-    if (state === 'failed') return 'Failed';
-    if (state === 'lost') return 'Lost';
-    return state;
-  }
-
   function roleBadge(role: string | null): string | null {
     if (role === 'body') return 'join';
     return null;
@@ -124,7 +113,8 @@
   }
 
   $effect(() => {
-    graph.rootId;
+    const rootId = graph.rootId;
+    if (rootId === '') return;
     collapsedPhaseKeys = new Set(dagPhases.map((phase) => phase.key));
   });
 
@@ -242,7 +232,7 @@
         onclick={() => onSelectTask(node.id)}
       >
         <span class="connector" aria-hidden="true">
-          {#each row.prefixSegments as continues}
+          {#each row.prefixSegments as continues, idx (idx)}
             <span class="seg">{continues ? '│' : ' '}</span>
           {/each}
           {#if !isRoot}

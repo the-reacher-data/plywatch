@@ -70,28 +70,28 @@ def test_queue_projector_accumulates_incremental_queue_timings() -> None:
 
     events = [
         RawCeleryEvent(
-            captured_at="2026-03-16T10:00:00+00:00",
+            captured_at="2099-03-16T10:00:00+00:00",
             event_type="task-sent",
             uuid="task-1",
             hostname="gen10@producer",
             payload={"queue": "default", "routing_key": "default"},
         ),
         RawCeleryEvent(
-            captured_at="2026-03-16T10:00:02+00:00",
+            captured_at="2099-03-16T10:00:02+00:00",
             event_type="task-received",
             uuid="task-1",
             hostname="celery@worker",
             payload={},
         ),
         RawCeleryEvent(
-            captured_at="2026-03-16T10:00:05+00:00",
+            captured_at="2099-03-16T10:00:05+00:00",
             event_type="task-started",
             uuid="task-1",
             hostname="celery@worker",
             payload={},
         ),
         RawCeleryEvent(
-            captured_at="2026-03-16T10:00:11+00:00",
+            captured_at="2099-03-16T10:00:11+00:00",
             event_type="task-succeeded",
             uuid="task-1",
             hostname="celery@worker",
