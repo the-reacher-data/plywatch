@@ -11,6 +11,7 @@ class OverviewResponse(Response, frozen=True, kw_only=True):
     """High-level monitor runtime overview."""
 
     product: str
+    version: str
     config_path: str
     broker_url: str
     raw_event_limit: int

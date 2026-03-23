@@ -7,6 +7,7 @@ export type CanvasRole = 'head' | 'tail' | 'member' | 'header' | 'body';
 
 export interface Overview {
   product: string;
+  version: string;
   configPath: string;
   brokerUrl: string;
   rawEventLimit: number;

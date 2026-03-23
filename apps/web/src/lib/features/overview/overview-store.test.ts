@@ -22,6 +22,7 @@ function makeClient(overrides: Partial<MonitorClient> = {}): MonitorClient {
     async getOverview(): Promise<Overview> {
       return {
         product: 'plywatch',
+        version: '0.1.0',
         configPath: 'config/base.yaml',
         brokerUrl: 'redis://redis:6379/0',
         rawEventLimit: 500,
@@ -143,6 +144,7 @@ describe('createOverviewStore', () => {
         }
         return {
           product: 'plywatch',
+          version: '0.1.0',
           configPath: 'config/base.yaml',
           brokerUrl: 'redis://redis:6379/0',
           rawEventLimit: 500,

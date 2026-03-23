@@ -48,6 +48,7 @@ class GetOverviewUseCase(UseCase[object, OverviewResponse]):
         visible_task_count = build_section_counts(visible_snapshots).family_count
         return OverviewResponse(
             product="plywatch",
+            version=self._settings.app.rest.version,
             config_path=self._settings.config_paths[0],
             broker_url=self._settings.celery.broker_url,
             raw_event_limit=self._settings.raw_event_limit,
