@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Protocol
+from collections.abc import Callable
 
 from loom.core.repository import RepositoryBuildContext, repository_for
 from plywatch.shared.runtime_config import RuntimeSettings
@@ -354,7 +355,7 @@ class InMemoryQueueSnapshotRepository(
         recorded_attr: str,
         start_at: str | None,
         end_at: str,
-        apply: callable,
+        apply: Callable[[int], None],
     ) -> None:
         if getattr(tracked, recorded_attr):
             return

@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Protocol
 
 from plywatch.queue.repository import QueueSnapshotRepository
 from plywatch.schedule.repository import ScheduleRunSnapshotRepository
 from plywatch.shared.raw_events import RawEventStore
 from plywatch.task.completed_repository import CompletedTaskSnapshotRepository
+from plywatch.task.models import CanvasKind, TaskSnapshot
 from plywatch.task.repository import TaskSnapshotRepository
 from plywatch.worker.repository import WorkerSnapshotRepository
 
@@ -24,6 +26,15 @@ class MonitorResetResult:
 class MonitorRemovalResult:
     removed_count: int
     removed_ids: tuple[str, ...]
+
+
+class _TaskFamilySnapshot(Protocol):
+    """Minimal task snapshot shape needed to resolve one retained family."""
+
+    uuid: str
+    root_id: str | None
+    canvas_id: str | None
+    canvas_kind: CanvasKind | None
 
 
 class MonitorAdminService:
@@ -88,22 +99,23 @@ class MonitorAdminService:
                 removed_ids.append(item.uuid)
         return MonitorRemovalResult(removed_count=len(removed_ids), removed_ids=tuple(removed_ids))
 
-    def _family_task_ids(self, snapshot: object) -> tuple[str, ...]:
+    def _family_task_ids(self, snapshot: _TaskFamilySnapshot) -> tuple[str, ...]:
         live_items, completed_items = self._family_items(snapshot)
         family_items = {item.uuid: item for item in completed_items}
         family_items.update({item.uuid: item for item in live_items})
         return tuple(family_items)
 
-    def _family_items(self, snapshot: object) -> tuple[list[object], list[object]]:
-        canvas_id = getattr(snapshot, "canvas_id", None)
-        canvas_kind = getattr(snapshot, "canvas_kind", None)
-        if canvas_id is not None and canvas_kind is not None:
+    def _family_items(
+        self,
+        snapshot: _TaskFamilySnapshot,
+    ) -> tuple[list[TaskSnapshot], list[TaskSnapshot]]:
+        if snapshot.canvas_id is not None and snapshot.canvas_kind is not None:
             return (
-                self._task_repository.list_by_canvas_id(canvas_id),
-                self._completed_task_repository.list_by_canvas_id(canvas_id),
+                self._task_repository.list_by_canvas_id(snapshot.canvas_id),
+                self._completed_task_repository.list_by_canvas_id(snapshot.canvas_id),
             )
 
-        root_id = getattr(snapshot, "root_id", None) or getattr(snapshot, "uuid")
+        root_id = snapshot.root_id or snapshot.uuid
         return (
             self._task_repository.list_by_root(root_id),
             self._completed_task_repository.list_by_root(root_id),

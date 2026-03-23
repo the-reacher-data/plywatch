@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { CellContext } from '@tanstack/table-core';
 
 import { buildTableView } from '$lib/components/table/create-table';
 import { toColumnDefs, type TableColumn } from '$lib/components/table/types';
@@ -38,10 +39,15 @@ describe('buildTableView', () => {
     ];
 
     const [column] = toColumnDefs(columns);
-    const rendered = column?.cell?.({
+    expect(typeof column?.cell).toBe('function');
+    const renderCell = column?.cell;
+    if (typeof renderCell !== 'function') {
+      throw new Error('Expected a callable cell renderer');
+    }
+    const rendered = renderCell({
       getValue: () => 'hello',
       row: { original: { id: '1', value: 'hello' } }
-    } as never);
+    } as CellContext<RowItem, unknown>);
 
     expect(rendered).toBe('1:HELLO');
   });
