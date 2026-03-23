@@ -26,6 +26,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       RELEASE_BRANCH: ${{ github.event_name == 'workflow_dispatch' && inputs.source_branch || github.event.pull_request.head.ref }}
+      DOCKERHUB_IMAGE: thereacherdata/plywatch
+      GHCR_IMAGE: ghcr.io/${{ github.repository_owner }}/plywatch
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
@@ -106,12 +108,21 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Log in to Docker Hub
+        if: ${{ steps.version.outputs.deploy == 'true' }}
+        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
       - name: Compute Docker image metadata and tags
         id: meta
         if: ${{ steps.version.outputs.deploy == 'true' }}
         uses: docker/metadata-action@902fa8ec7d6ecbea8a986b1b2d68f75f9d4fa3e1 # v5
         with:
-          images: ghcr.io/${{ github.repository_owner }}/plywatch
+          images: |
+            ${{ env.DOCKERHUB_IMAGE }}
+            ${{ env.GHCR_IMAGE }}
           tags: |
             type=semver,pattern=v{{version}},value=${{ steps.version.outputs.version }}
             type=semver,pattern=v{{major}},value=${{ steps.version.outputs.version }}
@@ -119,6 +130,7 @@ jobs:
           labels: |
             org.opencontainers.image.title=plywatch
             org.opencontainers.image.description=Ephemeral Celery monitoring — self-contained container with embedded web UI
+            org.opencontainers.image.vendor=MassiveDataScope
             org.opencontainers.image.url=https://github.com/${{ github.repository }}
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.version=${{ steps.version.outputs.version }}

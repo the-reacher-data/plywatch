@@ -2,6 +2,7 @@
 
 [![CI](https://github.com/massivadatascope/plywatch/actions/workflows/ci-pr.yml/badge.svg?branch=main)](https://github.com/massivadatascope/plywatch/actions/workflows/ci-pr.yml)
 [![Release](https://img.shields.io/github/v/release/massivadatascope/plywatch?sort=semver&color=blue)](https://github.com/massivadatascope/plywatch/releases/latest)
+[![Docker Hub](https://img.shields.io/badge/dockerhub-thereacherdata%2Fplywatch-2496ED?logo=docker&logoColor=white)](https://hub.docker.com/r/thereacherdata/plywatch)
 [![Container](https://img.shields.io/badge/ghcr.io-plywatch-0075C4?logo=docker&logoColor=white)](https://ghcr.io/massivadatascope/plywatch)
 [![Python](https://img.shields.io/badge/python-3.11-informational?logo=python&logoColor=white)](https://www.python.org/)
 [![License](https://img.shields.io/github/license/massivadatascope/plywatch)](LICENSE)
@@ -13,7 +14,7 @@ Ephemeral Celery monitoring with a self-contained, single-container deployment m
 ```bash
 docker run -p 8080:8080 \
   -e PLYWATCH_CELERY_BROKER_URL=redis://your-redis:6379/0 \
-  ghcr.io/massivadatascope/plywatch:latest
+  thereacherdata/plywatch:latest
 ```
 
 Open `http://localhost:8080` to access the monitoring UI.
@@ -125,9 +126,10 @@ npm test        # vitest unit tests
 Published to GHCR on every release:
 
 ```
-ghcr.io/massivadatascope/plywatch:latest     # latest stable
-ghcr.io/massivadatascope/plywatch:v1         # major track
-ghcr.io/massivadatascope/plywatch:v1.2.3     # exact version
+thereacherdata/plywatch:latest              # official Docker Hub image
+thereacherdata/plywatch:v1                  # major track
+thereacherdata/plywatch:v1.2.3              # exact version
+ghcr.io/massivadatascope/plywatch:latest     # GitHub Container Registry mirror
 ```
 
 Multi-arch: `linux/amd64` + `linux/arm64`.
