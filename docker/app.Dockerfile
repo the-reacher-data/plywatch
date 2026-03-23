@@ -15,8 +15,8 @@ COPY apps/web/static ./static
 
 RUN npm run build
 
-# ── Runtime image ──────────────────────────────────────────────────────────────
-FROM python:3.11-slim AS runtime
+# ── Python builder ─────────────────────────────────────────────────────────────
+FROM python:3.11-slim AS python-builder
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -26,24 +26,39 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# Dedicated non-root user
-RUN groupadd -r plywatch && useradd -r -g plywatch -s /sbin/nologin plywatch
-
 # Install uv for fast dependency installation
 COPY --from=ghcr.io/astral-sh/uv@sha256:72ab0aeb448090480ccabb99fb5f52b0dc3c71923bffb5e2e26517a1c27b7fec /uv /usr/local/bin/uv
 
-# Copy only production source — lab and examples are excluded via .dockerignore
 COPY apps/backend/pyproject.toml ./apps/backend/pyproject.toml
 COPY apps/backend/src ./apps/backend/src
 COPY apps/backend/config ./apps/backend/config
 
-# Embed the pre-built frontend artifact
-COPY --from=web-builder /app/apps/web/build ./apps/web/build
+RUN python -m venv /opt/venv
 
 RUN --mount=type=cache,target=/root/.cache/uv,sharing=locked \
-    uv pip install --system ./apps/backend
+    uv pip install --python /opt/venv/bin/python ./apps/backend
+
+# ── Runtime image ──────────────────────────────────────────────────────────────
+FROM python:3.11-slim AS runtime
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONFAULTHANDLER=1 \
+    PATH="/opt/venv/bin:$PATH"
+
+WORKDIR /app
+
+# Dedicated non-root user
+RUN groupadd -r plywatch && useradd -r -g plywatch -s /sbin/nologin plywatch
+
+# Copy only runtime application files
+COPY apps/backend/src ./apps/backend/src
+COPY apps/backend/config ./apps/backend/config
+COPY --from=web-builder /app/apps/web/build ./apps/web/build
+COPY --from=python-builder /opt/venv /opt/venv
 
 RUN chown -R plywatch:plywatch /app
+RUN chown -R plywatch:plywatch /opt/venv
 
 USER plywatch
 
