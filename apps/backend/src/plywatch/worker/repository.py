@@ -19,25 +19,33 @@ class WorkerSnapshotRepository(Protocol):
 
     def upsert(self, snapshot: WorkerSnapshot) -> None:
         """Insert or replace one worker snapshot."""
+        ...
 
     def get(self, hostname: str) -> WorkerSnapshot | None:
         """Return one worker snapshot by hostname."""
+        ...
 
     def list_recent(self, limit: int) -> list[WorkerSnapshot]:
         """Return workers ordered by latest activity."""
+        ...
 
     def count(self) -> int:
         """Return the number of tracked worker snapshots."""
+        ...
 
     def mark_stale(self) -> None:
         """Derive stale states from the heartbeat timeout policy."""
+        ...
 
     def clear(self) -> int:
         """Remove all retained worker snapshots and return the removed count."""
+        ...
 
 
 def build_worker_snapshot_repository(context: RepositoryBuildContext) -> WorkerSnapshotRepository:
     """Build the worker snapshot repository for the current app runtime."""
+    if context.container is None:
+        raise RuntimeError("Worker snapshot repository requires a DI container")
     settings = context.container.resolve(RuntimeSettings)
     return InMemoryWorkerSnapshotRepository(
         max_age_seconds=settings.max_age_seconds,
@@ -75,7 +83,7 @@ class InMemoryWorkerSnapshotRepository(
         """Return workers ordered by latest activity."""
         self.mark_stale()
         with self._lock:
-            items = [self._with_derived_state(item) for item in self._list_locked()]
+            items = [item for item in (self._with_derived_state(entry) for entry in self._list_locked()) if item is not None]
         items.sort(key=lambda item: item.last_seen_at, reverse=True)
         return items[:limit]
 

@@ -29,6 +29,7 @@ loom-kernel = { index = "testpypi" }
 [dependency-groups]
 dev = [
     "anyio>=4.12.1",
+    "basedpyright>=1.38.3",
     "httpx>=0.28.1",
     "pytest>=9.0.2",
     "pytest-asyncio>=1.3.0",

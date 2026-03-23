@@ -1,0 +1,23 @@
+{
+  "include": [
+    "apps/backend/src/plywatch"
+  ],
+  "exclude": [
+    "**/__pycache__",
+    ".venv",
+    "apps/web",
+    "docs"
+  ],
+  "executionEnvironments": [
+    {
+      "root": "apps/backend/src",
+      "extraPaths": [
+        "apps/backend/src"
+      ]
+    }
+  ],
+  "typeCheckingMode": "standard",
+  "reportImplicitRelativeImport": "none",
+  "reportMissingSuperCall": "none",
+  "reportMissingTypeStubs": "warning"
+}

@@ -106,6 +106,8 @@ make logs-web        # frontend dev server logs (if running separately)
 
 **Backend:**
 ```bash
+uv sync --dev
+make typecheck-backend
 uv run pytest
 ```
 

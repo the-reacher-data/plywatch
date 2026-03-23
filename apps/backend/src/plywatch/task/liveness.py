@@ -19,6 +19,7 @@ class TaskExecutionPresenceSnapshot(Protocol):
 
     def contains(self, *, worker_hostname: str, task_id: str) -> bool:
         """Return whether the worker still reports the task in flight."""
+        ...
 
 
 class TaskExecutionPresenceGateway(Protocol):
@@ -26,6 +27,7 @@ class TaskExecutionPresenceGateway(Protocol):
 
     def capture(self) -> TaskExecutionPresenceSnapshot:
         """Return the current live-task presence snapshot."""
+        ...
 
 
 @dataclass(frozen=True)

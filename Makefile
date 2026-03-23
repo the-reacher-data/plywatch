@@ -1,4 +1,4 @@
-.PHONY: up down rebuild logs logs-plywatch logs-producer logs-worker logs-web logs-plywatch-rabbit logs-producer-rabbit logs-worker-rabbit logs-rabbitmq ps smoke smoke-rabbit
+.PHONY: up down rebuild logs logs-plywatch logs-producer logs-worker logs-web logs-plywatch-rabbit logs-producer-rabbit logs-worker-rabbit logs-rabbitmq ps smoke smoke-rabbit typecheck-backend
 
 COMPOSE = docker compose
 
@@ -58,3 +58,6 @@ smoke-rabbit:
 	curl -sS http://127.0.0.1:8081/api/tasks/?limit=10
 	curl -sS http://127.0.0.1:8081/api/workers/?limit=10
 	curl -sS http://127.0.0.1:8081/api/queues/?limit=10
+
+typecheck-backend:
+	uv run basedpyright

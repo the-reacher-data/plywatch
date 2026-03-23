@@ -52,24 +52,31 @@ class ScheduleRunSnapshotRepository(Protocol):
 
     def upsert(self, snapshot: ScheduleRunSnapshot) -> None:
         """Insert or replace one schedule run snapshot."""
+        ...
 
     def get(self, task_id: str) -> ScheduleRunSnapshot | None:
         """Return one schedule run snapshot by UUID."""
+        ...
 
     def list_all(self) -> list[ScheduleRunSnapshot]:
         """Return all retained schedule run snapshots."""
+        ...
 
     def list_by_schedule_id(self, schedule_id: str) -> list[ScheduleRunSnapshot]:
         """Return all retained schedule run snapshots for one schedule."""
+        ...
 
     def remove(self, task_id: str) -> ScheduleRunSnapshot | None:
         """Remove one schedule run snapshot by UUID."""
+        ...
 
     def clear(self) -> int:
         """Clear all retained schedule run snapshots."""
+        ...
 
     def count(self) -> int:
         """Return the number of retained schedule run snapshots."""
+        ...
 
 
 def build_schedule_run_snapshot_repository(context: RepositoryBuildContext) -> ScheduleRunSnapshotRepository:

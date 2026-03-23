@@ -16,7 +16,7 @@ from plywatch.task.constants import (
     TaskEventType,
 )
 from plywatch.task.metadata import extract_canvas_metadata, extract_eta, extract_schedule_metadata
-from plywatch.task.models import TaskState
+from plywatch.task.models import CanvasKind, CanvasRole, TaskState
 
 STATE_BY_EVENT: dict[str, TaskState] = {
     TASK_EVENT_SENT: "sent",
@@ -46,9 +46,9 @@ class TaskEnvelope:
     kwargs_preview: str | None
     result_preview: str | None
     exception_preview: str | None
-    canvas_kind: str | None
+    canvas_kind: CanvasKind | None
     canvas_id: str | None
-    canvas_role: str | None
+    canvas_role: CanvasRole | None
     schedule_id: str | None
     schedule_name: str | None
     schedule_pattern: str | None

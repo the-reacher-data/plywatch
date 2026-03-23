@@ -58,89 +58,87 @@ def _create_instruments(
     """Create Prometheus instruments bound to *registry*."""
     from prometheus_client import Counter, Gauge, Histogram
 
-    reg = {"registry": registry} if registry is not None else {}
-
     plywatch_events_total: Counter = Counter(
         "plywatch_celery_events",
         "Total number of raw Celery events observed by Plywatch.",
         ["event_type"],
-        **reg,
+        registry=registry,
     )
     plywatch_queue_wait_seconds: Histogram = Histogram(
         "plywatch_task_queue_wait_seconds",
         "Observed time between task publication and worker receipt.",
         ["kind", "queue"],
-        **reg,
+        registry=registry,
     )
     plywatch_task_runtime_seconds: Histogram = Histogram(
         "plywatch_task_runtime_seconds",
         "Observed time between task start and task completion.",
         ["kind", "queue"],
-        **reg,
+        registry=registry,
     )
     plywatch_raw_events_tracked: Gauge = Gauge(
         "plywatch_raw_events_tracked",
         "Current number of retained raw Celery events.",
-        **reg,
+        registry=registry,
     )
     plywatch_tasks_tracked: Gauge = Gauge(
         "plywatch_tasks_tracked",
         "Current number of tracked task snapshots.",
-        **reg,
+        registry=registry,
     )
     plywatch_workers_tracked: Gauge = Gauge(
         "plywatch_workers_tracked",
         "Current number of tracked worker snapshots.",
-        **reg,
+        registry=registry,
     )
     plywatch_workers_by_state: Gauge = Gauge(
         "plywatch_workers_by_state",
         "Current number of tracked workers grouped by state.",
         ["state"],
-        **reg,
+        registry=registry,
     )
     plywatch_queue_tasks: Gauge = Gauge(
         "plywatch_queue_tasks",
         "Current queue snapshot counts grouped by queue and task state.",
         ["queue", "state"],
-        **reg,
+        registry=registry,
     )
 
     flower_events_total: Counter = Counter(
         "flower_events",
         "Deprecated compatibility counter matching Flower event totals.",
         ["task", "type", "worker"],
-        **reg,
+        registry=registry,
     )
     flower_task_prefetch_time_seconds: Histogram = Histogram(
         "flower_task_prefetch_time_seconds",
         "Deprecated compatibility histogram for task publish-to-receive latency.",
         ["task", "worker"],
-        **reg,
+        registry=registry,
     )
     flower_worker_prefetched_tasks: Gauge = Gauge(
         "flower_worker_prefetched_tasks",
         "Deprecated compatibility gauge for prefetched tasks per worker and task name.",
         ["task", "worker"],
-        **reg,
+        registry=registry,
     )
     flower_task_runtime_seconds: Histogram = Histogram(
         "flower_task_runtime_seconds",
         "Deprecated compatibility histogram for task runtime per worker and task name.",
         ["task", "worker"],
-        **reg,
+        registry=registry,
     )
     flower_worker_online: Gauge = Gauge(
         "flower_worker_online",
         "Deprecated compatibility gauge indicating whether a worker is online.",
         ["worker"],
-        **reg,
+        registry=registry,
     )
     flower_worker_number_of_currently_executing_tasks: Gauge = Gauge(
         "flower_worker_number_of_currently_executing_tasks",
         "Deprecated compatibility gauge for running tasks per worker.",
         ["worker"],
-        **reg,
+        registry=registry,
     )
 
     return (

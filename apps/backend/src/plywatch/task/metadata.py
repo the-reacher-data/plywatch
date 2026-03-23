@@ -3,12 +3,20 @@
 from __future__ import annotations
 
 import ast
+from typing import TypedDict
 
 from plywatch.shared.raw_events import JsonValue
 from plywatch.task.constants import CANVAS_MARKER_KEY, SCHEDULE_MARKER_KEY
+from plywatch.task.models import CanvasKind, CanvasRole
 
 
-def extract_canvas_metadata(payload: dict[str, JsonValue]) -> dict[str, str] | None:
+class CanvasMetadata(TypedDict):
+    kind: CanvasKind
+    id: str
+    role: CanvasRole | None
+
+
+def extract_canvas_metadata(payload: dict[str, JsonValue]) -> CanvasMetadata | None:
     """Extract stamped canvas metadata from a Celery event payload."""
 
     parsed = parse_kwargs_mapping(payload)
@@ -18,15 +26,17 @@ def extract_canvas_metadata(payload: dict[str, JsonValue]) -> dict[str, str] | N
     if not isinstance(canvas_value, dict):
         return None
 
-    kind = canvas_value.get("kind")
+    kind = _canvas_kind(canvas_value.get("kind"))
     canvas_id = canvas_value.get("id")
-    role = canvas_value.get("role")
-    if not isinstance(kind, str) or not isinstance(canvas_id, str):
+    role = _canvas_role(canvas_value.get("role"))
+    if kind is None or not isinstance(canvas_id, str):
         return None
 
-    normalized: dict[str, str] = {"kind": kind, "id": canvas_id}
-    if isinstance(role, str):
-        normalized["role"] = role
+    normalized: CanvasMetadata = {
+        "kind": kind,
+        "id": canvas_id,
+        "role": role,
+    }
     return normalized
 
 
@@ -70,3 +80,27 @@ def parse_kwargs_mapping(payload: dict[str, JsonValue]) -> dict[str, JsonValue] 
     except (SyntaxError, ValueError):
         return None
     return parsed if isinstance(parsed, dict) else None
+
+
+def _canvas_kind(value: object) -> CanvasKind | None:
+    if value == "chain":
+        return "chain"
+    if value == "group":
+        return "group"
+    if value == "chord":
+        return "chord"
+    return None
+
+
+def _canvas_role(value: object) -> CanvasRole | None:
+    if value == "head":
+        return "head"
+    if value == "tail":
+        return "tail"
+    if value == "member":
+        return "member"
+    if value == "header":
+        return "header"
+    if value == "body":
+        return "body"
+    return None

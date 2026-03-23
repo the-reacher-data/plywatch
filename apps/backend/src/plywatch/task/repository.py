@@ -22,15 +22,19 @@ class TaskSnapshotRepository(Protocol):
 
     def upsert(self, snapshot: TaskSnapshot) -> None:
         """Insert or replace one task snapshot."""
+        ...
 
     def get(self, task_id: str) -> TaskSnapshot | None:
         """Return one task snapshot by UUID."""
+        ...
 
     def list_recent(self, limit: int) -> list[TaskSnapshot]:
         """Return recent task snapshots ordered by latest activity."""
+        ...
 
     def list_all(self, *, query: QuerySpec | None = None) -> list[TaskSnapshot]:
         """Return all retained snapshots optionally filtered by the query."""
+        ...
 
     def list_recent_cursor(
         self,
@@ -38,34 +42,45 @@ class TaskSnapshotRepository(Protocol):
         query: QuerySpec,
     ) -> tuple[list[TaskSnapshot], str | None, bool]:
         """Return a bounded cursor page ordered by latest activity."""
+        ...
 
     def list_by_root(self, root_id: str) -> list[TaskSnapshot]:
         """Return all tracked snapshots belonging to one execution root."""
+        ...
 
     def list_by_canvas_id(self, canvas_id: str) -> list[TaskSnapshot]:
         """Return all tracked snapshots stamped with one canvas identifier."""
+        ...
 
     def list_by_schedule_id(self, schedule_id: str) -> list[TaskSnapshot]:
         """Return all tracked snapshots observed from one schedule."""
+        ...
 
     def remove(self, task_id: str) -> TaskSnapshot | None:
         """Remove one task snapshot by UUID and return it if present."""
+        ...
 
     def clear(self) -> int:
         """Remove all retained task snapshots and return the removed count."""
+        ...
 
     def count(self) -> int:
         """Return the number of tracked task snapshots."""
+        ...
 
     def max_tasks(self) -> int:
         """Return the configured maximum number of retained task snapshots."""
+        ...
 
     def max_age_seconds(self) -> int:
         """Return the configured maximum task retention age in seconds."""
+        ...
 
 
 def build_task_snapshot_repository(context: RepositoryBuildContext) -> TaskSnapshotRepository:
     """Build the task snapshot repository for the current app runtime."""
+    if context.container is None:
+        raise RuntimeError("Task snapshot repository requires a DI container")
     settings = context.container.resolve(RuntimeSettings)
     return InMemoryTaskSnapshotRepository(
         max_tasks=settings.max_tasks,

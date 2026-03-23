@@ -29,12 +29,12 @@ from plywatch.task.models import (
 )
 
 _TASK_GRAPH_BUILDER = TaskGraphBuilder()
-_TASK_SECTIONS = {
+_TASK_SECTIONS: frozenset[TaskSectionName] = frozenset({
     TASK_SECTION_QUEUED,
     TASK_SECTION_RUNNING,
     TASK_SECTION_SUCCEEDED,
     TASK_SECTION_FAILED,
-}
+})
 
 
 class ListTasksUseCase(UseCase[TaskSnapshot, CursorResult[TaskSummaryView]]):
@@ -187,8 +187,9 @@ def _split_section_filter(query: QuerySpec) -> tuple[TaskSectionName | None, Que
     passthrough_filters: list[FilterSpec] = []
     for filter_spec in query.filters.filters:
         if filter_spec.field == "section" and filter_spec.op is FilterOp.EQ and isinstance(filter_spec.value, str):
-            if filter_spec.value in _TASK_SECTIONS:
-                section = filter_spec.value
+            matched_section = _parse_section_name(filter_spec.value)
+            if matched_section is not None:
+                section = matched_section
             continue
         passthrough_filters.append(filter_spec)
 
@@ -201,3 +202,15 @@ def _split_section_filter(query: QuerySpec) -> tuple[TaskSectionName | None, Que
         page=query.page,
         cursor=query.cursor,
     )
+
+
+def _parse_section_name(value: str) -> TaskSectionName | None:
+    if value == TASK_SECTION_QUEUED:
+        return TASK_SECTION_QUEUED
+    if value == TASK_SECTION_RUNNING:
+        return TASK_SECTION_RUNNING
+    if value == TASK_SECTION_SUCCEEDED:
+        return TASK_SECTION_SUCCEEDED
+    if value == TASK_SECTION_FAILED:
+        return TASK_SECTION_FAILED
+    return None
