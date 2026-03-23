@@ -5,7 +5,8 @@ from __future__ import annotations
 import asyncio
 from collections.abc import AsyncIterator, Callable
 import contextlib
-from contextlib import asynccontextmanager
+from contextlib import AbstractAsyncContextManager, asynccontextmanager
+from dataclasses import dataclass
 import logging
 from pathlib import Path
 from typing import Any
@@ -94,6 +95,33 @@ class MonitorIdsPayload(BaseModel):
     ids: list[str]
 
 
+@dataclass(frozen=True)
+class MonitorRuntime:
+    """In-memory runtime collaborators wired into the FastAPI app."""
+
+    settings: RuntimeSettings
+    kernel: Any
+    raw_event_store: RawEventStore
+    event_counter_store: EventCounterStore
+    sse_fanout: SseFanout
+    runtime_metrics_adapter: MetricsAdapter | None
+    monitor_metrics_adapter: MonitorMetricsAdapter | None
+    task_repository: TaskSnapshotRepository
+    completed_task_repository: CompletedTaskSnapshotRepository
+    task_read_repository: TaskReadRepository
+    worker_repository: WorkerSnapshotRepository
+    queue_repository: QueueSnapshotRepository
+    schedule_repository: ScheduleRunSnapshotRepository
+    task_projector: TaskProjector
+    worker_projector: WorkerProjector
+    queue_projector: QueueProjector
+    schedule_projector: ScheduleProjector
+    event_dispatcher: EventDispatcher
+    consumer: CeleryEventConsumer
+    task_liveness_reconciler: TaskLivenessReconciler
+    monitor_admin: MonitorAdminService
+
+
 def create_app(*, start_consumer: bool = True) -> FastAPI:
     """Create the Plywatch API using Loom use cases and REST interfaces.
 
@@ -104,16 +132,35 @@ def create_app(*, start_consumer: bool = True) -> FastAPI:
     Returns:
         A configured FastAPI application.
     """
-    settings = load_runtime_settings()
-    configure_logging_from_values(
-        name=settings.logger.name,
-        environment=settings.logger.environment,
-        renderer=settings.logger.renderer,
-        colors=settings.logger.colors,
-        level=settings.logger.level,
-        named_levels=settings.logger.named_levels,
-        handlers=settings.logger.handlers,
+    runtime = _build_monitor_runtime()
+    app = create_fastapi_app(
+        runtime.kernel,
+        interfaces=(
+            MonitorRestInterface,
+            TaskRestInterface,
+            TaskSectionsRestInterface,
+            ScheduleRestInterface,
+            WorkerRestInterface,
+            QueueRestInterface,
+        ),
+        defaults=RestApiDefaults(pagination_mode=PaginationMode.CURSOR),
+        title=runtime.settings.app.rest.title,
+        version=runtime.settings.app.rest.version,
+        docs_url=runtime.settings.app.rest.docs_url,
+        redoc_url=runtime.settings.app.rest.redoc_url,
+        lifespan=_build_lifespan(runtime, start_consumer=start_consumer),
     )
+    _configure_app_middleware(app, runtime.settings)
+    _register_operational_routes(app, runtime)
+    _mount_frontend(app)
+    _attach_runtime_state(app, runtime)
+    return app
+
+
+def _build_monitor_runtime() -> MonitorRuntime:
+    """Construct and wire the backend runtime dependencies."""
+    settings = load_runtime_settings()
+    _configure_app_logging(settings)
     raw_event_store = RawEventStore(settings.raw_event_limit)
     event_counter_store = EventCounterStore()
     sse_fanout = SseFanout()
@@ -141,103 +188,224 @@ def create_app(*, start_consumer: bool = True) -> FastAPI:
         ),
         metrics=runtime_metrics_adapter,
     )
-    task_repository = kernel.container.resolve(TaskSnapshotRepository)
-    completed_task_repository = kernel.container.resolve(CompletedTaskSnapshotRepository)
-    task_read_repository = kernel.container.resolve(TaskReadRepository)
-    worker_repository = kernel.container.resolve(WorkerSnapshotRepository)
-    queue_repository = kernel.container.resolve(QueueSnapshotRepository)
-    schedule_repository = kernel.container.resolve(ScheduleRunSnapshotRepository)
-    task_projector = TaskProjector(task_repository, completed_task_repository)
-    worker_projector = WorkerProjector(worker_repository)
-    queue_projector = QueueProjector(queue_repository)
-    schedule_projector = ScheduleProjector(schedule_repository)
+    repositories = _resolve_runtime_repositories(kernel)
+    projectors = _build_runtime_projectors(repositories)
     event_dispatcher = EventDispatcher()
-    event_dispatcher.register_many((task_projector, worker_projector, queue_projector, schedule_projector))
-
-    def _on_event(event: Any) -> None:
-        task_exists_before = (
-            event.uuid is not None and event.event_type.startswith('task-') and task_repository.get(event.uuid) is not None
-        )
-        worker_exists_before = (
-            event.hostname is not None
-            and event.event_type.startswith('worker-')
-            and worker_repository.get(event.hostname) is not None
-        )
-        event_dispatcher.dispatch(event)
-        if monitor_metrics_adapter is not None:
-            monitor_metrics_adapter.record_projection_event(
-                event,
-                context=MonitorMetricsContext(
-                    raw_event_store=raw_event_store,
-                    task_repository=task_repository,
-                    worker_repository=worker_repository,
-                    queue_repository=queue_repository,
-                ),
-            )
-        for message in _build_frontend_events(
-            event,
-            task_exists_before=task_exists_before,
-            worker_exists_before=worker_exists_before,
-            task_repository=task_repository,
-        ):
-            sse_fanout.publish(message)
-
+    event_dispatcher.register_many(projectors)
     celery_app = create_celery_app(settings.celery)
     consumer = CeleryEventConsumer(
         celery_app,
         raw_event_store,
         event_counter_store,
         buffer_excluded_event_types=settings.raw_event_buffer_excluded_types,
-        on_event=_on_event,
+        on_event=_build_event_handler(
+            repositories=repositories,
+            event_dispatcher=event_dispatcher,
+            raw_event_store=raw_event_store,
+            worker_repository=repositories.worker_repository,
+            queue_repository=repositories.queue_repository,
+            sse_fanout=sse_fanout,
+            monitor_metrics_adapter=monitor_metrics_adapter,
+        ),
     )
     task_liveness_reconciler = TaskLivenessReconciler(
-        task_repository=task_repository,
-        completed_task_repository=completed_task_repository,
-        queue_repository=queue_repository,
+        task_repository=repositories.task_repository,
+        completed_task_repository=repositories.completed_task_repository,
+        queue_repository=repositories.queue_repository,
         presence_gateway=CeleryTaskExecutionPresenceGateway(celery_app),
         lost_after_seconds=settings.task_lost_after_seconds,
     )
     monitor_admin = MonitorAdminService(
-        task_repository=task_repository,
-        completed_task_repository=completed_task_repository,
-        worker_repository=worker_repository,
-        queue_repository=queue_repository,
-        schedule_repository=schedule_repository,
+        task_repository=repositories.task_repository,
+        completed_task_repository=repositories.completed_task_repository,
+        worker_repository=repositories.worker_repository,
+        queue_repository=repositories.queue_repository,
+        schedule_repository=repositories.schedule_repository,
         raw_event_store=raw_event_store,
     )
+    return MonitorRuntime(
+        settings=settings,
+        kernel=kernel,
+        raw_event_store=raw_event_store,
+        event_counter_store=event_counter_store,
+        sse_fanout=sse_fanout,
+        runtime_metrics_adapter=runtime_metrics_adapter,
+        monitor_metrics_adapter=monitor_metrics_adapter,
+        task_repository=repositories.task_repository,
+        completed_task_repository=repositories.completed_task_repository,
+        task_read_repository=repositories.task_read_repository,
+        worker_repository=repositories.worker_repository,
+        queue_repository=repositories.queue_repository,
+        schedule_repository=repositories.schedule_repository,
+        task_projector=projectors[0],
+        worker_projector=projectors[1],
+        queue_projector=projectors[2],
+        schedule_projector=projectors[3],
+        event_dispatcher=event_dispatcher,
+        consumer=consumer,
+        task_liveness_reconciler=task_liveness_reconciler,
+        monitor_admin=monitor_admin,
+    )
 
-    async def _reconcile_lost_tasks_loop() -> None:
-        interval = settings.task_liveness_reconcile_interval_seconds
-        if interval <= 0:
-            return
-        while True:
-            await asyncio.sleep(interval)
-            try:
-                result = task_liveness_reconciler.reconcile()
-            except Exception:
-                logger.exception("Task liveness reconciliation failed")
-                continue
-            for task_id in result.updated_task_ids:
-                sse_fanout.publish(
-                    {
-                        "type": "task.updated",
-                        "eventType": "task-lost",
-                        "taskId": task_id,
-                        "workerHostname": None,
-                        "queueName": None,
-                        "capturedAt": None,
-                        "taskName": None,
-                    }
-                )
+
+@dataclass(frozen=True)
+class RuntimeRepositories:
+    """Repository dependencies resolved from the kernel container."""
+
+    task_repository: TaskSnapshotRepository
+    completed_task_repository: CompletedTaskSnapshotRepository
+    task_read_repository: TaskReadRepository
+    worker_repository: WorkerSnapshotRepository
+    queue_repository: QueueSnapshotRepository
+    schedule_repository: ScheduleRunSnapshotRepository
+
+
+def _resolve_runtime_repositories(kernel: Any) -> RuntimeRepositories:
+    """Resolve the repositories needed by runtime projectors and services."""
+    return RuntimeRepositories(
+        task_repository=kernel.container.resolve(TaskSnapshotRepository),
+        completed_task_repository=kernel.container.resolve(CompletedTaskSnapshotRepository),
+        task_read_repository=kernel.container.resolve(TaskReadRepository),
+        worker_repository=kernel.container.resolve(WorkerSnapshotRepository),
+        queue_repository=kernel.container.resolve(QueueSnapshotRepository),
+        schedule_repository=kernel.container.resolve(ScheduleRunSnapshotRepository),
+    )
+
+
+def _build_runtime_projectors(
+    repositories: RuntimeRepositories,
+) -> tuple[TaskProjector, WorkerProjector, QueueProjector, ScheduleProjector]:
+    """Create the projector set that reacts to incoming Celery events."""
+    return (
+        TaskProjector(repositories.task_repository, repositories.completed_task_repository),
+        WorkerProjector(repositories.worker_repository),
+        QueueProjector(repositories.queue_repository),
+        ScheduleProjector(repositories.schedule_repository),
+    )
+
+
+def _configure_app_logging(settings: RuntimeSettings) -> None:
+    """Apply logger settings from runtime configuration."""
+    configure_logging_from_values(
+        name=settings.logger.name,
+        environment=settings.logger.environment,
+        renderer=settings.logger.renderer,
+        colors=settings.logger.colors,
+        level=settings.logger.level,
+        named_levels=settings.logger.named_levels,
+        handlers=settings.logger.handlers,
+    )
+
+
+def _build_event_handler(
+    *,
+    repositories: RuntimeRepositories,
+    event_dispatcher: EventDispatcher,
+    raw_event_store: RawEventStore,
+    worker_repository: WorkerSnapshotRepository,
+    queue_repository: QueueSnapshotRepository,
+    sse_fanout: SseFanout,
+    monitor_metrics_adapter: MonitorMetricsAdapter | None,
+) -> Callable[[Any], None]:
+    """Create the event callback used by the Celery event consumer."""
+
+    def _on_event(event: Any) -> None:
+        task_exists_before = _task_exists_before_event(event, repositories.task_repository)
+        worker_exists_before = _worker_exists_before_event(event, worker_repository)
+        event_dispatcher.dispatch(event)
+        _record_monitor_projection_metrics(
+            event=event,
+            monitor_metrics_adapter=monitor_metrics_adapter,
+            raw_event_store=raw_event_store,
+            task_repository=repositories.task_repository,
+            worker_repository=worker_repository,
+            queue_repository=queue_repository,
+        )
+        _publish_frontend_events(
+            event=event,
+            sse_fanout=sse_fanout,
+            task_exists_before=task_exists_before,
+            worker_exists_before=worker_exists_before,
+            task_repository=repositories.task_repository,
+        )
+
+    return _on_event
+
+
+def _task_exists_before_event(event: Any, task_repository: TaskSnapshotRepository) -> bool:
+    """Return whether the task targeted by the event already existed."""
+    return bool(
+        event.uuid is not None
+        and event.event_type.startswith("task-")
+        and task_repository.get(event.uuid) is not None
+    )
+
+
+def _worker_exists_before_event(event: Any, worker_repository: WorkerSnapshotRepository) -> bool:
+    """Return whether the worker targeted by the event already existed."""
+    return bool(
+        event.hostname is not None
+        and event.event_type.startswith("worker-")
+        and worker_repository.get(event.hostname) is not None
+    )
+
+
+def _record_monitor_projection_metrics(
+    *,
+    event: Any,
+    monitor_metrics_adapter: MonitorMetricsAdapter | None,
+    raw_event_store: RawEventStore,
+    task_repository: TaskSnapshotRepository,
+    worker_repository: WorkerSnapshotRepository,
+    queue_repository: QueueSnapshotRepository,
+) -> None:
+    """Record monitor-specific metrics for one projected event when enabled."""
+    if monitor_metrics_adapter is None:
+        return
+    monitor_metrics_adapter.record_projection_event(
+        event,
+        context=MonitorMetricsContext(
+            raw_event_store=raw_event_store,
+            task_repository=task_repository,
+            worker_repository=worker_repository,
+            queue_repository=queue_repository,
+        ),
+    )
+
+
+def _publish_frontend_events(
+    *,
+    event: Any,
+    sse_fanout: SseFanout,
+    task_exists_before: bool,
+    worker_exists_before: bool,
+    task_repository: TaskSnapshotRepository,
+) -> None:
+    """Push the derived frontend SSE messages for one projected event."""
+    for message in _build_frontend_events(
+        event,
+        task_exists_before=task_exists_before,
+        worker_exists_before=worker_exists_before,
+        task_repository=task_repository,
+    ):
+        sse_fanout.publish(message)
+
+
+def _build_lifespan(
+    runtime: MonitorRuntime,
+    *,
+    start_consumer: bool,
+) -> Callable[[FastAPI], AbstractAsyncContextManager[None]]:
+    """Create the FastAPI lifespan handler for background runtime services."""
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
-        sse_fanout.attach_loop(asyncio.get_running_loop())
+        runtime.sse_fanout.attach_loop(asyncio.get_running_loop())
         reconcile_task: asyncio.Task[None] | None = None
         if start_consumer:
-            consumer.start()
-            if settings.task_liveness_reconcile_interval_seconds > 0:
-                reconcile_task = asyncio.create_task(_reconcile_lost_tasks_loop())
+            runtime.consumer.start()
+            if runtime.settings.task_liveness_reconcile_interval_seconds > 0:
+                reconcile_task = asyncio.create_task(_reconcile_lost_tasks_loop(runtime))
         try:
             yield
         finally:
@@ -246,33 +414,55 @@ def create_app(*, start_consumer: bool = True) -> FastAPI:
                 with contextlib.suppress(asyncio.CancelledError):
                     await reconcile_task
             if start_consumer:
-                consumer.stop()
+                runtime.consumer.stop()
 
-    app = create_fastapi_app(
-        kernel,
-        interfaces=(
-            MonitorRestInterface,
-            TaskRestInterface,
-            TaskSectionsRestInterface,
-            ScheduleRestInterface,
-            WorkerRestInterface,
-            QueueRestInterface,
-        ),
-        defaults=RestApiDefaults(pagination_mode=PaginationMode.CURSOR),
-        title=settings.app.rest.title,
-        version=settings.app.rest.version,
-        docs_url=settings.app.rest.docs_url,
-        redoc_url=settings.app.rest.redoc_url,
-        lifespan=lifespan,
-    )
+    return lifespan
+
+
+async def _reconcile_lost_tasks_loop(runtime: MonitorRuntime) -> None:
+    """Periodically reconcile tasks that disappeared from Celery workers."""
+    interval = runtime.settings.task_liveness_reconcile_interval_seconds
+    if interval <= 0:
+        return
+    while True:
+        await asyncio.sleep(interval)
+        try:
+            result = runtime.task_liveness_reconciler.reconcile()
+        except Exception:
+            logger.exception("Task liveness reconciliation failed")
+            continue
+        for task_id in result.updated_task_ids:
+            runtime.sse_fanout.publish(_task_lost_message(task_id))
+
+
+def _task_lost_message(task_id: str) -> dict[str, object]:
+    """Build the SSE payload for one task marked as lost."""
+    return {
+        "type": "task.updated",
+        "eventType": "task-lost",
+        "taskId": task_id,
+        "workerHostname": None,
+        "queueName": None,
+        "capturedAt": None,
+        "taskName": None,
+    }
+
+
+def _configure_app_middleware(app: FastAPI, settings: RuntimeSettings) -> None:
+    """Apply optional middleware and metrics exposition to the app."""
     if settings.trace.enabled:
         app.add_middleware(TraceIdMiddleware, header=settings.trace.header)
-    if _prometheus_metrics_enabled(settings):
-        app.add_middleware(PrometheusMiddleware, registry=prometheus_client.REGISTRY)
-        app.mount(
-            settings.metrics.path,
-            prometheus_client.make_asgi_app(registry=prometheus_client.REGISTRY),
-        )
+    if not _prometheus_metrics_enabled(settings):
+        return
+    app.add_middleware(PrometheusMiddleware, registry=prometheus_client.REGISTRY)
+    app.mount(
+        settings.metrics.path,
+        prometheus_client.make_asgi_app(registry=prometheus_client.REGISTRY),
+    )
+
+
+def _register_operational_routes(app: FastAPI, runtime: MonitorRuntime) -> None:
+    """Register health, SSE, and monitor admin endpoints."""
 
     @app.get("/health")
     async def health() -> dict[str, str]:
@@ -282,17 +472,12 @@ def create_app(*, start_consumer: bool = True) -> FastAPI:
     @app.get("/api/events/stream")
     async def events_stream() -> StreamingResponse:
         """Stream live monitor events for the frontend."""
-
-        async def _stream() -> AsyncIterator[str]:
-            async for message in sse_fanout.subscribe():
-                yield message
-
-        return StreamingResponse(_stream(), media_type="text/event-stream")
+        return StreamingResponse(_stream_frontend_events(runtime.sse_fanout), media_type="text/event-stream")
 
     @app.post("/api/monitor/reset")
     async def reset_monitor() -> dict[str, int]:
         """Clear retained monitor data without touching historical totals."""
-        result = monitor_admin.reset()
+        result = runtime.monitor_admin.reset()
         return {
             "removedTasks": result.removed_tasks,
             "removedWorkers": result.removed_workers,
@@ -303,7 +488,7 @@ def create_app(*, start_consumer: bool = True) -> FastAPI:
     @app.delete("/api/monitor/tasks")
     async def remove_monitored_tasks(payload: MonitorIdsPayload = Body(...)) -> dict[str, object]:
         """Remove retained task families from the monitor only."""
-        result = monitor_admin.remove_task_families(payload.ids)
+        result = runtime.monitor_admin.remove_task_families(payload.ids)
         return {
             "removedCount": result.removed_count,
             "removedIds": list(result.removed_ids),
@@ -312,35 +497,41 @@ def create_app(*, start_consumer: bool = True) -> FastAPI:
     @app.delete("/api/monitor/schedules")
     async def remove_monitored_schedules(payload: MonitorIdsPayload = Body(...)) -> dict[str, object]:
         """Remove retained schedule runs from the monitor only."""
-        result = monitor_admin.remove_schedules(payload.ids)
+        result = runtime.monitor_admin.remove_schedules(payload.ids)
         return {
             "removedCount": result.removed_count,
             "removedIds": list(result.removed_ids),
         }
 
-    _mount_frontend(app)
 
-    app.state.runtime_settings = settings
-    app.state.raw_event_store = raw_event_store
-    app.state.event_counter_store = event_counter_store
-    app.state.task_repository = task_repository
-    app.state.completed_task_repository = completed_task_repository
-    app.state.task_read_repository = task_read_repository
-    app.state.task_projector = task_projector
-    app.state.schedule_repository = schedule_repository
-    app.state.schedule_projector = schedule_projector
-    app.state.worker_repository = worker_repository
-    app.state.worker_projector = worker_projector
-    app.state.queue_repository = queue_repository
-    app.state.queue_projector = queue_projector
-    app.state.event_dispatcher = event_dispatcher
-    app.state.sse_fanout = sse_fanout
-    app.state.runtime_metrics_adapter = runtime_metrics_adapter
-    app.state.monitor_metrics_adapter = monitor_metrics_adapter
-    app.state.celery_event_consumer = consumer
-    app.state.task_liveness_reconciler = task_liveness_reconciler
-    app.state.monitor_admin = monitor_admin
-    return app
+async def _stream_frontend_events(sse_fanout: SseFanout) -> AsyncIterator[str]:
+    """Yield SSE messages from the in-memory fanout."""
+    async for message in sse_fanout.subscribe():
+        yield message
+
+
+def _attach_runtime_state(app: FastAPI, runtime: MonitorRuntime) -> None:
+    """Expose runtime collaborators on app.state for tests and integrations."""
+    app.state.runtime_settings = runtime.settings
+    app.state.raw_event_store = runtime.raw_event_store
+    app.state.event_counter_store = runtime.event_counter_store
+    app.state.task_repository = runtime.task_repository
+    app.state.completed_task_repository = runtime.completed_task_repository
+    app.state.task_read_repository = runtime.task_read_repository
+    app.state.task_projector = runtime.task_projector
+    app.state.schedule_repository = runtime.schedule_repository
+    app.state.schedule_projector = runtime.schedule_projector
+    app.state.worker_repository = runtime.worker_repository
+    app.state.worker_projector = runtime.worker_projector
+    app.state.queue_repository = runtime.queue_repository
+    app.state.queue_projector = runtime.queue_projector
+    app.state.event_dispatcher = runtime.event_dispatcher
+    app.state.sse_fanout = runtime.sse_fanout
+    app.state.runtime_metrics_adapter = runtime.runtime_metrics_adapter
+    app.state.monitor_metrics_adapter = runtime.monitor_metrics_adapter
+    app.state.celery_event_consumer = runtime.consumer
+    app.state.task_liveness_reconciler = runtime.task_liveness_reconciler
+    app.state.monitor_admin = runtime.monitor_admin
 
 
 def _runtime_module(
