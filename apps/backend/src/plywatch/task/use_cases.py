@@ -35,6 +35,12 @@ _TASK_SECTIONS: frozenset[TaskSectionName] = frozenset({
     TASK_SECTION_SUCCEEDED,
     TASK_SECTION_FAILED,
 })
+_SECTION_NAMES: dict[str, TaskSectionName] = {
+    TASK_SECTION_QUEUED: TASK_SECTION_QUEUED,
+    TASK_SECTION_RUNNING: TASK_SECTION_RUNNING,
+    TASK_SECTION_SUCCEEDED: TASK_SECTION_SUCCEEDED,
+    TASK_SECTION_FAILED: TASK_SECTION_FAILED,
+}
 
 
 class ListTasksUseCase(UseCase[TaskSnapshot, CursorResult[TaskSummaryView]]):
@@ -205,12 +211,4 @@ def _split_section_filter(query: QuerySpec) -> tuple[TaskSectionName | None, Que
 
 
 def _parse_section_name(value: str) -> TaskSectionName | None:
-    if value == TASK_SECTION_QUEUED:
-        return TASK_SECTION_QUEUED
-    if value == TASK_SECTION_RUNNING:
-        return TASK_SECTION_RUNNING
-    if value == TASK_SECTION_SUCCEEDED:
-        return TASK_SECTION_SUCCEEDED
-    if value == TASK_SECTION_FAILED:
-        return TASK_SECTION_FAILED
-    return None
+    return _SECTION_NAMES.get(value)

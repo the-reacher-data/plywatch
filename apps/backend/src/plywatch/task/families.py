@@ -28,6 +28,13 @@ from plywatch.task.constants import (
 from plywatch.task.models import TaskSectionCountsView, TaskSnapshot, TaskState
 from plywatch.task.policies import is_future_scheduled_task
 
+_SECTION_TO_AGGREGATE_STATE: dict[TaskSectionName, TaskState] = {
+    TASK_SECTION_QUEUED: TASK_STATE_SENT,
+    TASK_SECTION_RUNNING: TASK_STATE_STARTED,
+    TASK_SECTION_SUCCEEDED: TASK_STATE_SUCCEEDED,
+    TASK_SECTION_FAILED: TASK_STATE_FAILED,
+}
+
 
 @dataclass(frozen=True)
 class TaskFamilyAggregate:
@@ -222,15 +229,7 @@ def _matches_section(
     section: TaskSectionName,
 ) -> bool:
     aggregate_state = classifier.to_aggregate(family).aggregate_state
-    if section == TASK_SECTION_QUEUED:
-        return aggregate_state == TASK_STATE_SENT
-    if section == TASK_SECTION_RUNNING:
-        return aggregate_state == TASK_STATE_STARTED
-    if section == TASK_SECTION_SUCCEEDED:
-        return aggregate_state == TASK_STATE_SUCCEEDED
-    if section == TASK_SECTION_FAILED:
-        return aggregate_state == TASK_STATE_FAILED
-    return False
+    return aggregate_state == _SECTION_TO_AGGREGATE_STATE[section]
 
 
 def _encode_family_cursor(last_seen_at: str, family_key: str) -> str:
