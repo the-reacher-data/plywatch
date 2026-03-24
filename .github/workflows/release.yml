@@ -79,7 +79,7 @@ jobs:
 
       - name: Compute Docker image metadata and tags
         id: meta
-        uses: docker/metadata-action@902fa8ec7d6ecbea8a986b1b2d68f75f9d4fa3e1 # v5
+        uses: docker/metadata-action@v5
         with:
           images: |
             ${{ env.DOCKERHUB_IMAGE }}
