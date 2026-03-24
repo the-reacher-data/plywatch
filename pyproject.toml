@@ -1,6 +1,6 @@
 [project]
 name = "plywatch-backend"
-version = "0.0.0"
+version = "0.1.0"
 description = "Backend service for Plywatch"
 requires-python = ">=3.11"
 dependencies = [
@@ -9,11 +9,16 @@ dependencies = [
 ]
 
 [build-system]
-requires = ["hatchling>=1.24.0"]
+requires = [
+    "hatchling>=1.24.0",
+]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/app", "src/plywatch"]
+packages = [
+    "src/app",
+    "src/plywatch",
+]
 
 [tool.pytest.ini_options]
 pythonpath = [
@@ -21,6 +26,36 @@ pythonpath = [
     "examples/lab/app-producer/src",
 ]
 asyncio_mode = "auto"
+
+[tool.semantic_branch]
+prerelease = [
+    "hotfix/.*",
+    "feature/.*",
+    "feat/.*",
+    "multifeature/.*",
+    "breaking/.*",
+    "fix/.*",
+]
+patch = [
+    "hotfix/.*",
+    "fix/.*",
+]
+minor = [
+    "feature/.*",
+    "feat/.*",
+    "multifeature/.*",
+]
+major = [
+    "breaking/.*",
+]
+prerelease_ignore = [
+    "docs/.*",
+]
+release_ignore = [
+    "wip/.*",
+    "docs/.*",
+    "chore/.*",
+]
 
 [dependency-groups]
 dev = [
@@ -35,18 +70,3 @@ dev = [
     "sphinx-copybutton>=0.5.2",
     "sphinx-design>=0.7.0",
 ]
-
-[tool.semantic_branch]
-prerelease = [
-    "hotfix/.*",
-    "feature/.*",
-    "feat/.*",
-    "multifeature/.*",
-    "breaking/.*",
-    "fix/.*",
-]
-patch = ["hotfix/.*", "fix/.*"]
-minor = ["feature/.*", "feat/.*", "multifeature/.*"]
-major = ["breaking/.*"]
-prerelease_ignore = ["docs/.*"]
-release_ignore = ["wip/.*", "docs/.*", "chore/.*"]
