@@ -531,8 +531,8 @@ wheels = [
 
 [[package]]
 name = "loom-kernel"
-version = "0.2.1.dev29"
-source = { registry = "https://test.pypi.org/simple/" }
+version = "0.2.1"
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiocache" },
     { name = "msgspec" },
@@ -540,9 +540,9 @@ dependencies = [
     { name = "prometheus-client" },
     { name = "structlog" },
 ]
-sdist = { url = "https://test-files.pythonhosted.org/packages/dd/f6/f20ba1daabc76ecf21c7fe314ccc5e51c13fa56ee2027f24d485cf5e9da1/loom_kernel-0.2.1.dev29.tar.gz", hash = "sha256:c93573e450faeab37c17a719fa2095c54881bad30b916f7e27a8f7af17bc3eab", size = 12312520, upload-time = "2026-03-13T14:34:48.155Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/74/4e/282c76bf4a8b0bb096c98859db15af43f88ff10229f318d289fea2f91baa/loom_kernel-0.2.1.tar.gz", hash = "sha256:3183181d387b0fe02e3938b53e74c678621aabaeb1efe6f8834a4a55511e219d", size = 1208533, upload-time = "2026-03-19T11:15:47.193Z" }
 wheels = [
-    { url = "https://test-files.pythonhosted.org/packages/da/53/d8b78e0e55343888a6040c179d1bb469540d46f2ace115509d14babd1608/loom_kernel-0.2.1.dev29-py3-none-any.whl", hash = "sha256:318049dfebd9809658d848525b2553588d48f5e564b51ca91d370bcccd406227", size = 246182, upload-time = "2026-03-13T14:34:46.06Z" },
+    { url = "https://files.pythonhosted.org/packages/68/e4/8e633917cdda733501a8097724488fa5c1a969de49ae5931e4028add96be/loom_kernel-0.2.1-py3-none-any.whl", hash = "sha256:28feffdc4d5df3a738c2680b1d75dd0ae36f664b427d017e15258f19a09ca16f", size = 246122, upload-time = "2026-03-19T11:15:45.779Z" },
 ]
 
 [package.optional-dependencies]
@@ -819,7 +819,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "loom-kernel", extras = ["cache", "celery", "config", "prometheus", "rest", "sqlalchemy"], specifier = "==0.2.1.dev29", index = "https://test.pypi.org/simple/" },
+    { name = "loom-kernel", extras = ["cache", "celery", "config", "prometheus", "rest", "sqlalchemy"], specifier = "==0.2.1" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.30,<1.0" },
 ]
 
