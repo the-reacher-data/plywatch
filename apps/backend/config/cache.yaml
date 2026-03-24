@@ -1,0 +1,13 @@
+cache:
+  enabled: ${oc.decode:${oc.env:PLYWATCH_CACHE_ENABLED,true}}
+  aiocache_alias: ${oc.env:PLYWATCH_CACHE_AIOCACHE_ALIAS,default}
+  counter_alias: ${oc.env:PLYWATCH_CACHE_COUNTER_ALIAS,counters}
+  default_ttl: ${oc.decode:${oc.env:PLYWATCH_MAX_AGE_SECONDS,21600}}
+  default_list_ttl: ${oc.decode:${oc.env:PLYWATCH_MAX_AGE_SECONDS,21600}}
+  aiocache:
+    default:
+      cache: ${oc.env:PLYWATCH_CACHE_DEFAULT_BACKEND,aiocache.SimpleMemoryCache}
+      serializer:
+        class: ${oc.env:PLYWATCH_CACHE_DEFAULT_SERIALIZER,loom.core.cache.serializer.MsgspecSerializer}
+    counters:
+      cache: ${oc.env:PLYWATCH_CACHE_COUNTER_BACKEND,aiocache.SimpleMemoryCache}

@@ -1,0 +1,10 @@
+meta {
+  name: raw events
+  type: http
+  seq: 9
+}
+
+get {
+  url: {{monitor_url}}/api/events/raw?limit=50
+  body: none
+}

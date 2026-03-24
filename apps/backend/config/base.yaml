@@ -1,0 +1,25 @@
+app:
+  name: ${oc.env:PLYWATCH_APP_NAME,plywatch}
+  code_path: ${oc.env:PLYWATCH_CODE_PATH,../src}
+  discovery:
+    mode: ${oc.env:PLYWATCH_DISCOVERY_MODE,manifest}
+    manifest:
+      module: ${oc.env:PLYWATCH_DISCOVERY_MANIFEST_MODULE,app.manifest}
+  rest:
+    backend: ${oc.env:PLYWATCH_REST_BACKEND,fastapi}
+    title: ${oc.env:PLYWATCH_REST_TITLE,Plywatch API}
+    version: ${oc.env:PLYWATCH_REST_VERSION,0.1.0}
+    docs_url: ${oc.decode:${oc.env:PLYWATCH_REST_DOCS_URL,"/docs"}}
+    redoc_url: ${oc.decode:${oc.env:PLYWATCH_REST_REDOC_URL,"/redoc"}}
+
+logger:
+  name: ${oc.env:PLYWATCH_LOGGER_NAME,plywatch}
+  environment: ${oc.env:PLYWATCH_ENVIRONMENT,dev}
+  renderer: ${oc.env:PLYWATCH_LOG_RENDERER,${oc.env:LOG_RENDERER,console}}
+  colors: ${oc.decode:${oc.env:PLYWATCH_LOG_COLORS,${oc.env:LOG_COLORS,true}}}
+  level: ${oc.env:PLYWATCH_LOG_LEVEL,${oc.env:LOG_LEVEL,INFO}}
+  named_levels:
+    celery: ${oc.env:PLYWATCH_LOG_LEVEL_CELERY,WARNING}
+    kombu: ${oc.env:PLYWATCH_LOG_LEVEL_KOMBU,WARNING}
+    amqp: ${oc.env:PLYWATCH_LOG_LEVEL_AMQP,WARNING}
+    redis: ${oc.env:PLYWATCH_LOG_LEVEL_REDIS,WARNING}

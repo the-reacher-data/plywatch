@@ -1,0 +1,1 @@
+"""Lab producer app package."""

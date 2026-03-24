@@ -1,0 +1,104 @@
+name: release-pr
+
+on:
+  pull_request:
+    types: [closed]
+    branches: ["main"]
+  workflow_dispatch:
+    inputs:
+      source_branch:
+        description: "Merged branch used to compute semantic release version"
+        required: true
+        default: "main"
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: release-pr-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  prepare-release-pr:
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event.pull_request.merged == true && !startsWith(github.event.pull_request.head.ref, 'docs/') && !startsWith(github.event.pull_request.head.ref, 'release/')) }}
+    runs-on: ubuntu-latest
+    env:
+      RELEASE_BRANCH: ${{ github.event_name == 'workflow_dispatch' && inputs.source_branch || github.event.pull_request.head.ref }}
+      RELEASE_BASE: ${{ github.event_name == 'workflow_dispatch' && inputs.source_branch || github.event.pull_request.base.ref }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Compute release version from merged branch
+        id: version
+        uses: the-reacher-data/loom-actions/actions/release/versioning-branch-semantic@e731576f4f9cf4ec2b36fddfc895d328c856d29f # v1
+        with:
+          branch: ${{ env.RELEASE_BRANCH }}
+          prerelease: "false"
+
+      - name: Generate release changelog
+        id: changelog
+        if: ${{ steps.version.outputs.deploy == 'true' && github.event_name != 'workflow_dispatch' }}
+        uses: the-reacher-data/loom-actions/actions/release/changelog-conventional-commit@e731576f4f9cf4ec2b36fddfc895d328c856d29f # v1
+        with:
+          mode: "release"
+          branch: ${{ env.RELEASE_BRANCH }}
+          version: ${{ steps.version.outputs.version }}
+          pr-number: ${{ github.event.pull_request.number }}
+          output: CHANGELOG.md
+
+      - name: Generate fallback changelog for manual release PR
+        if: ${{ steps.version.outputs.deploy == 'true' && github.event_name == 'workflow_dispatch' }}
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          SOURCE_BRANCH: ${{ env.RELEASE_BRANCH }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > CHANGELOG.md <<EOF
+          # Release v${VERSION}
+
+          Manual release PR triggered from branch: ${SOURCE_BRANCH}
+          EOF
+
+      - name: Sync project version
+        if: ${{ steps.version.outputs.deploy == 'true' }}
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          sed -i "0,/^version = \".*\"/s//version = \"${VERSION}\"/" pyproject.toml
+          sed -i "0,/^version = \".*\"/s//version = \"${VERSION}\"/" apps/backend/pyproject.toml
+          sed -i "0,/^version = \".*\"/s//version = \"${VERSION}\"/" apps/web/package.json
+          sed -i "0,/^[[:space:]]*version: .*/s//    version: ${VERSION}/" apps/backend/config/base.yaml
+
+      - name: Create release pull request
+        if: ${{ steps.version.outputs.deploy == 'true' }}
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: release: v${{ steps.version.outputs.version }}
+          branch: release/v${{ steps.version.outputs.version }}
+          base: ${{ env.RELEASE_BASE }}
+          title: release: v${{ steps.version.outputs.version }}
+          body: |
+            Automated release metadata update.
+
+            This PR materializes:
+            - `CHANGELOG.md`
+            - `pyproject.toml`
+            - `apps/backend/pyproject.toml`
+            - `apps/web/package.json`
+            - `apps/backend/config/base.yaml`
+
+            Merge this PR to publish:
+            - Docker Hub image `thereacherdata/plywatch`
+            - GHCR mirror
+            - Git tag and GitHub Release
+          labels: |
+            release
+            automated
+          delete-branch: true

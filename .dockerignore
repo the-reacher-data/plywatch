@@ -1,0 +1,35 @@
+# Development tooling and local state
+.git
+.github
+.claude
+.ai
+**/.env
+**/.env.*
+
+# Lab / examples — not part of the production image
+examples/
+docker-compose.yml
+docker-compose*.yml
+
+# Node artifacts — rebuilt inside the image
+apps/web/node_modules
+apps/web/.svelte-kit
+apps/web/build
+
+# Python artifacts — rebuilt inside the image
+**/__pycache__
+**/*.pyc
+**/*.pyo
+**/*.egg-info
+**/.venv
+.uv-cache
+uv.lock
+
+# Documentation and planning
+docs/
+*.md
+!apps/backend/README.md
+
+# Tooling configs not needed at runtime
+Makefile
+docker/

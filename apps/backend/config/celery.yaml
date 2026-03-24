@@ -1,0 +1,12 @@
+celery:
+  broker_url: ${oc.env:PLYWATCH_CELERY_BROKER_URL,redis://redis:6379/0}
+  result_backend: ${oc.env:PLYWATCH_CELERY_RESULT_BACKEND,redis://redis:6379/1}
+  worker_concurrency: ${oc.decode:${oc.env:PLYWATCH_CELERY_WORKER_CONCURRENCY,2}}
+  worker_prefetch_multiplier: ${oc.decode:${oc.env:PLYWATCH_CELERY_PREFETCH_MULTIPLIER,1}}
+  worker_max_tasks_per_child: ${oc.decode:${oc.env:PLYWATCH_CELERY_MAX_TASKS_PER_CHILD,100}}
+  task_always_eager: ${oc.decode:${oc.env:PLYWATCH_CELERY_TASK_ALWAYS_EAGER,false}}
+  timezone: ${oc.env:PLYWATCH_CELERY_TIMEZONE,UTC}
+  enable_utc: ${oc.decode:${oc.env:PLYWATCH_CELERY_ENABLE_UTC,true}}
+  task_serializer: ${oc.env:PLYWATCH_CELERY_TASK_SERIALIZER,json}
+  result_serializer: ${oc.env:PLYWATCH_CELERY_RESULT_SERIALIZER,json}
+  accept_content: ${oc.decode:${oc.env:PLYWATCH_CELERY_ACCEPT_CONTENT,["json"]}}

@@ -1,0 +1,250 @@
+name: ci-main
+
+on:
+  push:
+    branches: ["main"]
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend — test
+    runs-on: ubuntu-latest
+    env:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      SONAR_HOST_URL: https://sonarcloud.io
+      SONAR_PROJECT_KEY: ${{ vars.SONAR_PROJECT_KEY }}
+      SONAR_ORGANIZATION: ${{ vars.SONAR_ORGANIZATION }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.11"
+
+      - uses: astral-sh/setup-uv@caf0cab7a618c569241d31dcd442f54681755d39 # v3
+
+      - name: Configure uv environment path
+        shell: bash
+        run: echo "UV_PROJECT_ENVIRONMENT=$RUNNER_TEMP/uv-ci-main" >> "$GITHUB_ENV"
+
+      - name: Run pytest with coverage and JUnit output
+        shell: bash
+        run: |
+          set -euo pipefail
+          uv run --with pytest-cov pytest \
+            --cov=apps/backend/src/plywatch \
+            --cov-report=xml:coverage.xml \
+            --junitxml=junit.xml \
+            -o junit_family=legacy
+
+      - name: Upload backend coverage artifact
+        if: ${{ always() && hashFiles('coverage.xml') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage
+          path: coverage.xml
+
+      - name: Upload backend JUnit artifact
+        if: ${{ !cancelled() && hashFiles('junit.xml') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-junit
+          path: junit.xml
+
+  frontend:
+    name: Frontend — lint, typecheck, test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@cdca7365b2dadb8aad0a33bc7601856ffabcc48e # v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: apps/web/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run check
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Frontend coverage
+        run: npm run test:coverage
+
+      - name: Upload frontend coverage artifact
+        if: ${{ always() && hashFiles('apps/web/coverage/lcov.info') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-coverage
+          path: apps/web/coverage/lcov.info
+
+  quality:
+    name: Quality — coverage & SonarCloud
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+    env:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      SONAR_HOST_URL: https://sonarcloud.io
+      SONAR_PROJECT_KEY: ${{ vars.SONAR_PROJECT_KEY }}
+      SONAR_ORGANIZATION: ${{ vars.SONAR_ORGANIZATION }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Download backend coverage artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: backend-coverage
+          path: .
+
+      - name: Download backend JUnit artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: backend-junit
+          path: .
+
+      - name: Download frontend coverage artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-coverage
+          path: apps/web/coverage
+
+      - name: Upload coverage to Codecov
+        if: ${{ hashFiles('coverage.xml', 'apps/web/coverage/lcov.info') != '' }}
+        uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de # v5
+        with:
+          files: ./coverage.xml,./apps/web/coverage/lcov.info
+          fail_ci_if_error: false
+          token: ${{ env.CODECOV_TOKEN }}
+
+      - name: Upload test results to Codecov
+        if: ${{ !cancelled() && hashFiles('junit.xml') != '' }}
+        uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de # v5
+        with:
+          files: ./junit.xml
+          report_type: test_results
+          fail_ci_if_error: false
+          token: ${{ env.CODECOV_TOKEN }}
+
+      - name: Validate SonarCloud configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          missing=0
+          if [ -z "${SONAR_TOKEN}" ]; then
+            echo "Missing SONAR_TOKEN secret"
+            missing=1
+          fi
+          if [ -z "${SONAR_PROJECT_KEY}" ]; then
+            echo "Missing SONAR_PROJECT_KEY variable"
+            missing=1
+          fi
+          if [ -z "${SONAR_ORGANIZATION}" ]; then
+            echo "Missing SONAR_ORGANIZATION variable"
+            missing=1
+          fi
+          if [ "${missing}" -ne 0 ]; then
+            exit 1
+          fi
+          if [ ! -f "apps/web/coverage/lcov.info" ]; then
+            echo "Missing frontend coverage report"
+            exit 1
+          fi
+
+      - name: SonarCloud scan
+        uses: SonarSource/sonarqube-scan-action@2f77a1ec69fb1d595b06f35ab27e97605bdef703 # v5
+        with:
+          args: >
+            -Dsonar.projectKey=${{ env.SONAR_PROJECT_KEY }}
+            -Dsonar.organization=${{ env.SONAR_ORGANIZATION }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ env.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ env.SONAR_HOST_URL }}
+
+  snyk-monitor:
+    name: Snyk — dependency monitoring
+    runs-on: ubuntu-latest
+    env:
+      SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.11"
+
+      - uses: astral-sh/setup-uv@caf0cab7a618c569241d31dcd442f54681755d39 # v3
+
+      - name: Configure uv environment path
+        shell: bash
+        run: echo "UV_PROJECT_ENVIRONMENT=$RUNNER_TEMP/uv-snyk" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-node@cdca7365b2dadb8aad0a33bc7601856ffabcc48e # v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: apps/web/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: apps/web
+        run: npm ci
+
+      - name: Setup Snyk CLI
+        if: ${{ env.SNYK_TOKEN != '' }}
+        uses: snyk/actions/setup@9adf32b1121593767fc3c057af55b55db032dc04 # master
+
+      - name: Snyk monitor — Python
+        if: ${{ env.SNYK_TOKEN != '' }}
+        shell: bash
+        env:
+          SNYK_TOKEN: ${{ env.SNYK_TOKEN }}
+        run: |
+          set -euo pipefail
+          MANIFEST_DIR="$RUNNER_TEMP/snyk-manifests"
+          mkdir -p "$MANIFEST_DIR"
+          uv export --frozen --no-hashes --no-emit-project \
+            -o "$MANIFEST_DIR/requirements.txt"
+          uv export --frozen --only-group dev --no-hashes --no-emit-project \
+            -o "$MANIFEST_DIR/requirements-dev.txt"
+          python -m pip install -r "$MANIFEST_DIR/requirements.txt"
+          snyk monitor --skip-unresolved \
+            --file="$MANIFEST_DIR/requirements.txt" \
+            --package-manager=pip \
+            --project-name="plywatch/python" \
+            --target-reference="${GITHUB_REF_NAME:-main}"
+          python -m pip install -r "$MANIFEST_DIR/requirements-dev.txt"
+          snyk monitor --skip-unresolved \
+            --file="$MANIFEST_DIR/requirements-dev.txt" \
+            --package-manager=pip \
+            --project-name="plywatch/python-dev" \
+            --target-reference="${GITHUB_REF_NAME:-main}"
+
+      - name: Snyk monitor — Node
+        if: ${{ env.SNYK_TOKEN != '' }}
+        working-directory: apps/web
+        env:
+          SNYK_TOKEN: ${{ env.SNYK_TOKEN }}
+        run: |
+          snyk monitor --skip-unresolved \
+            --project-name="plywatch/web" \
+            --target-reference="${GITHUB_REF_NAME:-main}"

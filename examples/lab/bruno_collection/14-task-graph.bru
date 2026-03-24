@@ -1,0 +1,10 @@
+meta {
+  name: task graph
+  type: http
+  seq: 15
+}
+
+get {
+  url: {{monitor_url}}/api/tasks/{{task_id}}/graph
+  body: none
+}

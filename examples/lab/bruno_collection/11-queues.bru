@@ -1,0 +1,10 @@
+meta {
+  name: queues
+  type: http
+  seq: 12
+}
+
+get {
+  url: {{monitor_url}}/api/queues/?limit=20
+  body: none
+}
