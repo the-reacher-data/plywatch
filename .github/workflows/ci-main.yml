@@ -3,6 +3,12 @@ name: ci-main
 on:
   push:
     branches: ["main"]
+    paths-ignore:
+      - "CHANGELOG.md"
+      - "pyproject.toml"
+      - "apps/backend/pyproject.toml"
+      - "apps/web/package.json"
+      - "apps/backend/config/base.yaml"
 
 permissions:
   contents: read

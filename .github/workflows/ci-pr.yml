@@ -3,6 +3,12 @@ name: ci-pr
 on:
   pull_request:
     branches: ["main"]
+    paths-ignore:
+      - "CHANGELOG.md"
+      - "pyproject.toml"
+      - "apps/backend/pyproject.toml"
+      - "apps/web/package.json"
+      - "apps/backend/config/base.yaml"
 
 permissions:
   contents: read
