@@ -4,7 +4,7 @@ version = "0.0.0"
 description = "Backend service for Plywatch"
 requires-python = ">=3.11"
 dependencies = [
-    "loom-kernel[cache,celery,config,prometheus,rest,sqlalchemy]==0.2.1.dev29",
+    "loom-kernel[cache,celery,config,prometheus,rest,sqlalchemy]==0.2.1",
     "uvicorn[standard]>=0.30,<1.0",
 ]
 
@@ -21,14 +21,6 @@ pythonpath = [
     "examples/lab/app-producer/src",
 ]
 asyncio_mode = "auto"
-
-[[tool.uv.index]]
-name = "testpypi"
-url = "https://test.pypi.org/simple/"
-explicit = true
-
-[tool.uv.sources]
-loom-kernel = { index = "testpypi" }
 
 [dependency-groups]
 dev = [

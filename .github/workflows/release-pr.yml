@@ -80,10 +80,10 @@ jobs:
         uses: peter-evans/create-pull-request@v7
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          commit-message: release: v${{ steps.version.outputs.version }}
+          commit-message: "release: v${{ steps.version.outputs.version }}"
           branch: release/v${{ steps.version.outputs.version }}
           base: ${{ env.RELEASE_BASE }}
-          title: release: v${{ steps.version.outputs.version }}
+          title: "release: v${{ steps.version.outputs.version }}"
           body: |
             Automated release metadata update.
 

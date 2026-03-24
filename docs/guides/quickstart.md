@@ -22,7 +22,7 @@ Use Plywatch as an internal app.
 ```bash
 docker run -p 8080:8080 \
   -e PLYWATCH_CELERY_BROKER_URL=redis://your-redis:6379/0 \
-  ghcr.io/massivadatascope/plywatch:latest
+  ghcr.io/the-reacher-data/plywatch:latest
 ```
 
 Open `http://127.0.0.1:8080`.
