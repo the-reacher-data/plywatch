@@ -441,7 +441,7 @@ def _configure_app_middleware(app: FastAPI, settings: RuntimeSettings) -> None:
             media_type="text/plain; version=0.0.4; charset=utf-8",
         )
 
-    @app.get(f"{metrics_path}/", include_in_schema=False)
+    @app.get(metrics_path + "/", include_in_schema=False)
     async def metrics_with_trailing_slash() -> None:
         raise HTTPException(status_code=404, detail="Not Found")
 
