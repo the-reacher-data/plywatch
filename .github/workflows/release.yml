@@ -10,6 +10,10 @@ on:
         description: "Branch used to compute semantic release version"
         required: true
         default: "main"
+      version:
+        description: "Optional version override (for example 0.1.0)"
+        required: false
+        default: ""
 
 permissions:
   contents: write
@@ -31,15 +35,25 @@ jobs:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           fetch-depth: 0
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.source_branch || github.ref }}
 
-      - name: Read release version from pyproject
+      - name: Resolve release version
         id: version
+        env:
+          MANUAL_VERSION: ${{ github.event_name == 'workflow_dispatch' && inputs.version || '' }}
         shell: bash
         run: |
           set -euo pipefail
-          VERSION="$(sed -n 's/^version = "\(.*\)"/\1/p' apps/backend/pyproject.toml | head -n1)"
+          VERSION="${MANUAL_VERSION}"
+          if [ -z "${VERSION}" ]; then
+            VERSION="$(sed -n 's/^version = "\(.*\)"/\1/p' apps/backend/pyproject.toml | head -n1)"
+          fi
           if [ -z "${VERSION}" ]; then
             echo "Unable to determine release version from apps/backend/pyproject.toml"
+            exit 1
+          fi
+          if ! [[ "${VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+            echo "Invalid version '${VERSION}'. Expected semver-like value (for example 0.1.0)."
             exit 1
           fi
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
