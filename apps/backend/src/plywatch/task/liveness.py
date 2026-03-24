@@ -31,7 +31,7 @@ class TaskExecutionPresenceGateway(Protocol):
         ...
 
 
-class LostTaskReconciliationResult(LoomStruct, frozen=True, kw_only=True):
+class LostTaskReconciliationResult(LoomStruct, kw_only=True):
     """Outcome of one liveness reconciliation pass."""
 
     updated_task_ids: tuple[str, ...]

@@ -61,7 +61,7 @@ _SUMMARY_PAYLOAD_FIELDS: Final[tuple[tuple[str, str], ...]] = (
     ("scheduledFor", "scheduled_for"),
 )
 
-class TaskTimelineEvent(LoomStruct, frozen=True, kw_only=True):
+class TaskTimelineEvent(LoomStruct, kw_only=True):
     """One retained lifecycle event belonging to a task."""
 
     captured_at: str

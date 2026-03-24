@@ -10,7 +10,7 @@ from loom.core.model import LoomStruct
 from plywatch.task.liveness import TaskExecutionPresenceGateway, TaskExecutionPresenceSnapshot
 
 
-class CeleryTaskExecutionPresenceSnapshot(LoomStruct, frozen=True, kw_only=True):
+class CeleryTaskExecutionPresenceSnapshot(LoomStruct, kw_only=True):
     """Immutable live-task lookup built from Celery inspect calls."""
 
     task_ids_by_worker: dict[str, frozenset[str]]

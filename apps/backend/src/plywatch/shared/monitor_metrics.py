@@ -16,7 +16,7 @@ from plywatch.worker.repository import WorkerSnapshotRepository
 MONITOR_METRICS_ADAPTER_PROMETHEUS = "prometheus"
 
 
-class MonitorMetricsContext(LoomStruct, frozen=True, kw_only=True):
+class MonitorMetricsContext(LoomStruct, kw_only=True):
     """Projection state passed to monitor metrics adapters."""
 
     raw_event_store: RawEventStore

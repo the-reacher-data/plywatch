@@ -28,7 +28,7 @@ STATE_BY_EVENT: dict[str, TaskState] = {
 }
 
 
-class TaskEnvelope(LoomStruct, frozen=True, kw_only=True):
+class TaskEnvelope(LoomStruct, kw_only=True):
     """Stable internal task event model used by projectors."""
 
     task_id: str

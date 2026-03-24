@@ -38,20 +38,20 @@ _SECTION_TO_AGGREGATE_STATE: dict[TaskSectionName, TaskState] = {
 }
 
 
-class TaskFamilyAggregate(LoomStruct, frozen=True, kw_only=True):
+class TaskFamilyAggregate(LoomStruct, kw_only=True):
     aggregate_state: TaskState
     completed_count: int
     total_count: int
     has_visible_root: bool
 
 
-class TaskFamily(LoomStruct, frozen=True, kw_only=True):
+class TaskFamily(LoomStruct, kw_only=True):
     key: str
     root: TaskSnapshot
     items: tuple[TaskSnapshot, ...]
 
 
-class TaskFamilyPage(LoomStruct, frozen=True, kw_only=True):
+class TaskFamilyPage(LoomStruct, kw_only=True):
     items: tuple[TaskSnapshot, ...]
     next_cursor: str | None
     has_next: bool

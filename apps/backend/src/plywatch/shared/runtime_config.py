@@ -57,7 +57,7 @@ class MonitorConfig(msgspec.Struct, kw_only=True):
     task_liveness_reconcile_interval_seconds: int = 30
 
 
-class RuntimeSettings(LoomStruct, frozen=True, kw_only=True):
+class RuntimeSettings(LoomStruct, kw_only=True):
     """Resolved runtime settings for the Plywatch backend."""
 
     config_paths: tuple[str, ...]

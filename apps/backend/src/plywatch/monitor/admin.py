@@ -15,14 +15,14 @@ from plywatch.task.repository import TaskSnapshotRepository
 from plywatch.worker.repository import WorkerSnapshotRepository
 
 
-class MonitorResetResult(LoomStruct, frozen=True, kw_only=True):
+class MonitorResetResult(LoomStruct, kw_only=True):
     removed_tasks: int
     removed_workers: int
     removed_queues: int
     removed_raw_events: int
 
 
-class MonitorRemovalResult(LoomStruct, frozen=True, kw_only=True):
+class MonitorRemovalResult(LoomStruct, kw_only=True):
     removed_count: int
     removed_ids: tuple[str, ...]
 

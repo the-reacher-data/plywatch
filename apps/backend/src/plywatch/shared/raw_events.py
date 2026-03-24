@@ -17,7 +17,7 @@ JsonValue = JsonScalar | list["JsonValue"] | dict[str, "JsonValue"]
 _MAX_STRING_LENGTH: Final[int] = 500
 
 
-class RawCeleryEvent(LoomStruct, frozen=True, kw_only=True):
+class RawCeleryEvent(LoomStruct, kw_only=True):
     """Normalized raw Celery event captured by the monitor.
 
     Attributes:
