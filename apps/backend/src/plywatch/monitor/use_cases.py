@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+
 from loom.core.repository.abc.query import QuerySpec
 from loom.core.use_case.use_case import UseCase
 
@@ -50,7 +52,7 @@ class GetOverviewUseCase(UseCase[object, OverviewResponse]):
             product="plywatch",
             version=self._settings.app.rest.version,
             config_path=self._settings.config_paths[0],
-            broker_url=self._settings.celery.broker_url,
+            broker_url=_redact_connection_url(self._settings.celery.broker_url),
             raw_event_limit=self._settings.raw_event_limit,
             raw_event_count=self._raw_event_store.count(),
             buffered_event_count=self._raw_event_store.count(),
@@ -98,3 +100,41 @@ class ListRawEventsUseCase(UseCase[object, RawEventsResponse]):
             count=self._raw_event_store.count(),
             limit=limit,
         )
+
+
+def _redact_connection_url(url: str) -> str:
+    """Redact sensitive URL parts while keeping it operationally readable."""
+    parsed = urlsplit(url)
+    if parsed.scheme == "":
+        return "***redacted***"
+
+    hostname = parsed.hostname or ""
+    if ":" in hostname and not hostname.startswith("["):
+        hostname = f"[{hostname}]"
+    port = f":{parsed.port}" if parsed.port is not None else ""
+
+    userinfo = ""
+    if parsed.username is not None:
+        if parsed.password is not None:
+            userinfo = f"{parsed.username}:***@"
+        else:
+            userinfo = f"{parsed.username}@"
+    elif parsed.password is not None:
+        userinfo = "***@"
+
+    safe_query = ""
+    if parsed.query:
+        safe_query = urlencode(
+            [(key, "***") for key, _ in parse_qsl(parsed.query, keep_blank_values=True)],
+            doseq=True,
+        )
+
+    return urlunsplit(
+        (
+            parsed.scheme,
+            f"{userinfo}{hostname}{port}",
+            parsed.path,
+            safe_query,
+            "",
+        )
+    )

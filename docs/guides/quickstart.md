@@ -2,6 +2,14 @@
 
 `plywatch` monitors Celery activity without requiring a persistent application database.
 
+## Security notice
+
+Use Plywatch as an internal app.
+
+- Do not publish the service directly on the public internet.
+- Deploy behind an ingress/reverse proxy with authentication and TLS.
+- Restrict access to trusted operator networks.
+
 ## What it is for
 
 - live task monitoring

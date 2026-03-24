@@ -10,8 +10,8 @@ from app.service import emit_scenario, emit_suite
 app = FastAPI(title="Plywatch Lab Producer", version="0.1.0")
 
 
-@app.get("/healthz")
-async def healthz() -> dict[str, str]:
+@app.get("/health")
+async def health() -> dict[str, str]:
     """Health probe."""
     return {"status": "ok"}
 

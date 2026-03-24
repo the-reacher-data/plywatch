@@ -901,3 +901,17 @@ def test_overview_counts_logical_task_families_not_raw_executions() -> None:
 
     assert overview.status_code == 200
     assert overview.json()["taskCount"] == 1
+
+
+def test_overview_redacts_broker_url_credentials(monkeypatch) -> None:
+    monkeypatch.setenv("METRICS_ENABLED", "false")
+    monkeypatch.setenv("PLYWATCH_CELERY_BROKER_URL", "pyamqp://guest:guest@rabbitmq:5672//")
+    app = create_app(start_consumer=False)
+    client = TestClient(app)
+
+    overview = client.get("/api/overview")
+
+    assert overview.status_code == 200
+    broker_url = overview.json()["brokerUrl"]
+    assert broker_url == "pyamqp://guest:***@rabbitmq:5672//"
+    assert "guest:guest@" not in broker_url

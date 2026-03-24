@@ -25,6 +25,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       RELEASE_BRANCH: ${{ github.event_name == 'workflow_dispatch' && inputs.source_branch || github.event.pull_request.head.ref }}
+      RELEASE_BASE: ${{ github.event_name == 'workflow_dispatch' && inputs.source_branch || github.event.pull_request.base.ref }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
@@ -81,6 +82,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           commit-message: release: v${{ steps.version.outputs.version }}
           branch: release/v${{ steps.version.outputs.version }}
+          base: ${{ env.RELEASE_BASE }}
           title: release: v${{ steps.version.outputs.version }}
           body: |
             Automated release metadata update.

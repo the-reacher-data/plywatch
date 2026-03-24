@@ -167,7 +167,7 @@
     <section class="timeline-section">
       <h4 class="section-title">Activity timeline</h4>
       <div class="timeline-chart">
-        {#each timeline as bucket (bucket.label)}
+        {#each timeline as bucket, index (`${queue.name}-${index}-${bucket.label}`)}
           <div class="tl-col" title="{bucket.label} · {bucket.total} tasks">
             <div class="tl-stack">
               {#if bucket.failed > 0}

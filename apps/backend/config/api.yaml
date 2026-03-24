@@ -4,9 +4,21 @@ includes:
   - celery.yaml
 
 trace:
-  enabled: ${oc.decode:${oc.env:TRACE_ENABLED,true}}
+  enabled: ${oc.decode:${oc.env:PLYWATCH_TRACE_ENABLED,${oc.env:TRACE_ENABLED,true}}}
+  header: ${oc.env:PLYWATCH_TRACE_HEADER,x-request-id}
 
 metrics:
-  enabled: ${oc.decode:${oc.env:METRICS_ENABLED,true}}
-  path: ${oc.env:METRICS_PATH,/metrics}
-  adapters: [prometheus]
+  enabled: ${oc.decode:${oc.env:PLYWATCH_METRICS_ENABLED,${oc.env:METRICS_ENABLED,true}}}
+  path: ${oc.env:PLYWATCH_METRICS_PATH,${oc.env:METRICS_PATH,/metrics}}
+  adapters: ${oc.decode:${oc.env:PLYWATCH_METRICS_ADAPTERS,["prometheus"]}}
+
+monitor:
+  raw_event_limit: ${oc.decode:${oc.env:PLYWATCH_RAW_EVENT_LIMIT,500}}
+  raw_event_buffer_excluded_types: ${oc.decode:${oc.env:PLYWATCH_RAW_EVENT_BUFFER_EXCLUDED_TYPES,["worker-heartbeat"]}}
+  max_tasks: ${oc.decode:${oc.env:PLYWATCH_MAX_TASKS,2000}}
+  max_completed_tasks: ${oc.decode:${oc.env:PLYWATCH_MAX_COMPLETED_TASKS,20000}}
+  max_schedule_runs: ${oc.decode:${oc.env:PLYWATCH_MAX_SCHEDULE_RUNS,5000}}
+  max_age_seconds: ${oc.decode:${oc.env:PLYWATCH_MAX_AGE_SECONDS,21600}}
+  worker_stale_after_seconds: ${oc.decode:${oc.env:PLYWATCH_WORKER_STALE_AFTER_SECONDS,15}}
+  task_lost_after_seconds: ${oc.decode:${oc.env:PLYWATCH_TASK_LOST_AFTER_SECONDS,1800}}
+  task_liveness_reconcile_interval_seconds: ${oc.decode:${oc.env:PLYWATCH_TASK_LIVENESS_RECONCILE_INTERVAL_SECONDS,30}}

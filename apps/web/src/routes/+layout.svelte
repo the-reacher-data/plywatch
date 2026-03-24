@@ -2,6 +2,7 @@
   import { page } from '$app/state';
   import { resolve } from '$app/paths';
   import { Activity, ListTodo, Server, Layers, Zap, Github, Mail } from 'lucide-svelte';
+  import webPackage from '../../package.json';
   import '../app.css';
 
   // In Svelte 5 runes mode, layout children are rendered via the snippet API.
@@ -14,6 +15,7 @@
     { href: '/queues', label: 'Queues', icon: Layers },
     { href: '/events', label: 'Celery Events', icon: Zap }
   ];
+  const appVersion = `v${webPackage.version}`;
 
 </script>
 
@@ -62,6 +64,7 @@
           <span>Contact</span>
         </a>
       </div>
+      <div class="footer-version" title="Plywatch version">{appVersion}</div>
     </footer>
   </aside>
 
@@ -263,6 +266,15 @@
 
   .footer-link:hover :global(svg) {
     color: #6b7280;
+  }
+
+  .footer-version {
+    margin-top: 0.1rem;
+    padding: 0 0.25rem;
+    color: #c2c9d1;
+    font-size: 0.68rem;
+    font-family: "IBM Plex Mono", monospace;
+    letter-spacing: 0.03em;
   }
 
   @media (max-width: 900px) {

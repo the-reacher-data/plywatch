@@ -44,7 +44,7 @@ ps:
 
 smoke:
 	curl -sS http://127.0.0.1:8080/health
-	curl -sS http://127.0.0.1:8090/healthz
+	curl -sS http://127.0.0.1:8090/health
 	curl -sS http://127.0.0.1:4173
 	curl -sS http://127.0.0.1:8080/api/overview
 	curl -sS http://127.0.0.1:8080/api/tasks/?limit=10
@@ -53,7 +53,7 @@ smoke:
 
 smoke-rabbit:
 	curl -sS http://127.0.0.1:8081/health
-	curl -sS http://127.0.0.1:8091/healthz
+	curl -sS http://127.0.0.1:8091/health
 	curl -sS http://127.0.0.1:8081/api/overview
 	curl -sS http://127.0.0.1:8081/api/tasks/?limit=10
 	curl -sS http://127.0.0.1:8081/api/workers/?limit=10

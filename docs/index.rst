@@ -4,6 +4,10 @@ plywatch documentation
 Plywatch is an ephemeral Celery monitor with an embedded web UI. It is designed
 to be easy to run, easy to inspect, and operationally lightweight.
 
+Security note: Plywatch is intended for internal/trusted environments. Deploy it
+behind an authenticated TLS-terminating proxy; do not expose it directly to the
+public internet.
+
 The docs here are intentionally short:
 
 - what Plywatch is for

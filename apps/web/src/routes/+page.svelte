@@ -37,7 +37,6 @@
       ? 'Tracked executions in current window'
       : `${$overview.snapshot.taskCount} tracked executions in current window`,
   );
-  const repositoryUrl = 'https://github.com/thereacherdata/plywatch';
 
   onMount(() => {
     void overview.start();
@@ -60,14 +59,6 @@
   <div class="page-header-main">
     <div class="title-group">
       <h2>Overview</h2>
-      {#if $overview.snapshot !== null}
-        <div class="release-meta">
-          <a class="release-link" href={repositoryUrl} target="_blank" rel="noreferrer">
-            GitHub
-          </a>
-          <span class="release-version">v{$overview.snapshot.version}</span>
-        </div>
-      {/if}
     </div>
     {#if $overview.snapshot !== null}
       <div class="live-badge">
@@ -199,29 +190,6 @@
 
   .page-header h2 {
     margin: 0;
-  }
-
-  .release-meta {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.55rem;
-    font-size: 0.8rem;
-    color: #64748b;
-  }
-
-  .release-link {
-    color: #0f172a;
-    text-decoration: none;
-    font-weight: 600;
-  }
-
-  .release-link:hover {
-    text-decoration: underline;
-  }
-
-  .release-version {
-    color: #475569;
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   }
 
   .live-badge {

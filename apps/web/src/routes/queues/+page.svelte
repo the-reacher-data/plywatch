@@ -167,12 +167,14 @@
 
     <div class="detail-area">
       {#if selectedQueue !== null}
-        <QueueDetailPanel
-          queue={selectedQueue}
-          tasks={queueTasks}
-          {queueHref}
-          loading={tasksLoading}
-        />
+        {#key selectedQueue.name}
+          <QueueDetailPanel
+            queue={selectedQueue}
+            tasks={queueTasks}
+            {queueHref}
+            loading={tasksLoading}
+          />
+        {/key}
       {:else if !$queues.loading}
         <div class="empty-detail">
           <span class="empty-icon">⊞</span>

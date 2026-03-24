@@ -19,6 +19,14 @@ docker run -p 8080:8080 \
 
 Open `http://localhost:8080` to access the monitoring UI.
 
+## Security notice
+
+Plywatch is currently designed for internal/trusted networks.
+
+- Do not expose it directly to the public internet.
+- Put it behind an ingress/reverse proxy with authentication and TLS.
+- Restrict network access to operators and platform services only.
+
 ## What it does
 
 - Live task monitoring via SSE
@@ -48,13 +56,20 @@ Open `http://localhost:8080` to access the monitoring UI.
 
 ## Configuration
 
-All config is passed via environment variables or the YAML layer at `apps/backend/config/`:
+All runtime configuration is defined in YAML (`apps/backend/config/*.yaml`) and every value is overridable through environment variables.
+
+Minimum required variables:
 
 | Variable | Description | Required |
 |---|---|---|
 | `PLYWATCH_CELERY_BROKER_URL` | Celery broker URL (`redis://...`) | ✓ |
 | `PLYWATCH_CELERY_RESULT_BACKEND` | Result backend URL | ✓ |
-| `PLYWATCH_CACHE_BACKEND` | Cache backend (`memory` or `redis`) | — |
+| `PLYWATCH_METRICS_ENABLED` | Enable/disable metrics exposition | — |
+| `PLYWATCH_MAX_TASKS` | Max retained live tasks in memory | — |
+
+Full variable map (app/logger/trace/metrics/monitor/celery/cache), data formats (`null`, lists via JSON strings), and examples are documented in:
+
+- `docs/guides/configuration.md`
 
 ## Repository layout
 
