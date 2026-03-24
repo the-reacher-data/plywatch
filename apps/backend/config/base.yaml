@@ -8,7 +8,7 @@ app:
   rest:
     backend: ${oc.env:PLYWATCH_REST_BACKEND,fastapi}
     title: ${oc.env:PLYWATCH_REST_TITLE,Plywatch API}
-    version: ${oc.env:PLYWATCH_REST_VERSION,0.1.0}
+    version: 0.1.0
     docs_url: ${oc.decode:${oc.env:PLYWATCH_REST_DOCS_URL,"/docs"}}
     redoc_url: ${oc.decode:${oc.env:PLYWATCH_REST_REDOC_URL,"/redoc"}}
 
