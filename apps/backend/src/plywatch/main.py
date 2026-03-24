@@ -441,7 +441,11 @@ def _configure_app_middleware(app: FastAPI, settings: RuntimeSettings) -> None:
             media_type="text/plain; version=0.0.4; charset=utf-8",
         )
 
-    @app.get(metrics_path + "/", include_in_schema=False)
+    @app.get(
+        metrics_path + "/",
+        include_in_schema=False,
+        responses={404: {"description": "Not Found"}},
+    )
     async def metrics_with_trailing_slash() -> None:
         raise HTTPException(status_code=404, detail="Not Found")
 
@@ -672,7 +676,11 @@ def _mount_frontend(app: FastAPI, settings: RuntimeSettings) -> None:
     async def frontend_index() -> FileResponse:
         return FileResponse(index_path)
 
-    @app.get("/{path:path}", include_in_schema=False)
+    @app.get(
+        "/{path:path}",
+        include_in_schema=False,
+        responses={404: {"description": "Not Found"}},
+    )
     async def frontend_path(path: str) -> FileResponse:
         if _is_reserved_operational_path(path, metrics_path=settings.metrics.path):
             raise HTTPException(status_code=404, detail="Not Found")
