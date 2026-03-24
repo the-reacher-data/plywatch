@@ -1,11 +1,11 @@
-FROM node:22-alpine AS web-builder
+FROM --platform=$BUILDPLATFORM node:22-alpine AS web-builder
 
 WORKDIR /app/apps/web
 
 # Copy lockfile first to maximise layer cache reuse
 COPY apps/web/package.json apps/web/package-lock.json ./
 
-RUN npm ci --ignore-scripts
+RUN npm ci --ignore-scripts --no-audit --no-fund
 
 # Copy only build-time sources — no test configs, no playwright, no examples
 COPY apps/web/svelte.config.js apps/web/tsconfig.json apps/web/vite.config.ts ./
