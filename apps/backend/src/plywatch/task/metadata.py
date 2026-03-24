@@ -6,20 +6,31 @@ import ast
 from typing import Final, TypedDict
 
 from plywatch.shared.raw_events import JsonValue
-from plywatch.task.constants import CANVAS_MARKER_KEY, SCHEDULE_MARKER_KEY
+from plywatch.task.constants import (
+    CANVAS_KIND_CHAIN,
+    CANVAS_KIND_CHORD,
+    CANVAS_KIND_GROUP,
+    CANVAS_MARKER_KEY,
+    CANVAS_ROLE_BODY,
+    CANVAS_ROLE_HEAD,
+    CANVAS_ROLE_HEADER,
+    CANVAS_ROLE_MEMBER,
+    CANVAS_ROLE_TAIL,
+    SCHEDULE_MARKER_KEY,
+)
 from plywatch.task.models import CanvasKind, CanvasRole
 
 _CANVAS_KIND_BY_VALUE: Final[dict[str, CanvasKind]] = {
-    "chain": "chain",
-    "group": "group",
-    "chord": "chord",
+    CANVAS_KIND_CHAIN: CANVAS_KIND_CHAIN,
+    CANVAS_KIND_GROUP: CANVAS_KIND_GROUP,
+    CANVAS_KIND_CHORD: CANVAS_KIND_CHORD,
 }
 _CANVAS_ROLE_BY_VALUE: Final[dict[str, CanvasRole]] = {
-    "head": "head",
-    "tail": "tail",
-    "member": "member",
-    "header": "header",
-    "body": "body",
+    CANVAS_ROLE_HEAD: CANVAS_ROLE_HEAD,
+    CANVAS_ROLE_TAIL: CANVAS_ROLE_TAIL,
+    CANVAS_ROLE_MEMBER: CANVAS_ROLE_MEMBER,
+    CANVAS_ROLE_HEADER: CANVAS_ROLE_HEADER,
+    CANVAS_ROLE_BODY: CANVAS_ROLE_BODY,
 }
 
 

@@ -4,10 +4,12 @@ from __future__ import annotations
 
 from collections import deque
 from collections.abc import Mapping
-from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from threading import Lock
-from typing import Final
+from typing import Final, cast
+
+import msgspec
+from loom.core.model import LoomStruct
 
 JsonScalar = str | int | float | bool | None
 JsonValue = JsonScalar | list["JsonValue"] | dict[str, "JsonValue"]
@@ -15,8 +17,7 @@ JsonValue = JsonScalar | list["JsonValue"] | dict[str, "JsonValue"]
 _MAX_STRING_LENGTH: Final[int] = 500
 
 
-@dataclass(frozen=True)
-class RawCeleryEvent:
+class RawCeleryEvent(LoomStruct, frozen=True, kw_only=True):
     """Normalized raw Celery event captured by the monitor.
 
     Attributes:
@@ -35,7 +36,7 @@ class RawCeleryEvent:
 
     def to_dict(self) -> dict[str, JsonValue]:
         """Return a JSON-like dict for API responses."""
-        return asdict(self)
+        return cast(dict[str, JsonValue], msgspec.to_builtins(self))
 
 
 class RawEventStore:

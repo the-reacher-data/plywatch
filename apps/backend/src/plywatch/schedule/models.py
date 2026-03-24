@@ -8,6 +8,12 @@ from loom.core.response import Response
 
 from plywatch.schedule.repository import ScheduleRunSnapshot
 from plywatch.shared.raw_events import JsonValue
+from plywatch.task.constants import (
+    ACTIVE_TASK_STATES,
+    FAILED_TASK_STATES,
+    TASK_STATE_SENT,
+    TASK_STATE_SUCCEEDED,
+)
 from plywatch.task.models import TaskSummaryView, to_task_summary_payload
 from plywatch.task.policies import is_future_scheduled_task, is_scheduled_task
 
@@ -63,15 +69,15 @@ def build_schedule_summaries(
         queued_runs = sum(
             1
             for item in items
-            if item.state == "sent" and not is_future_scheduled_task(item)
+            if item.state == TASK_STATE_SENT and not is_future_scheduled_task(item)
         )
         running_runs = sum(
             1
             for item in items
-            if item.state in {"received", "started", "retrying"} and not is_future_scheduled_task(item)
+            if item.state in ACTIVE_TASK_STATES and not is_future_scheduled_task(item)
         )
-        succeeded_runs = sum(1 for item in items if item.state == "succeeded")
-        failed_runs = sum(1 for item in items if item.state in {"failed", "lost"})
+        succeeded_runs = sum(1 for item in items if item.state == TASK_STATE_SUCCEEDED)
+        failed_runs = sum(1 for item in items if item.state in FAILED_TASK_STATES)
         most_recent = ordered[0]
         summaries.append(
             ScheduleSummaryView(

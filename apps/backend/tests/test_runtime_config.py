@@ -36,6 +36,7 @@ def test_load_runtime_settings_reads_rest_metrics_and_trace_from_env(monkeypatch
     monkeypatch.setenv("PLYWATCH_REST_REDOC_URL", "null")
     monkeypatch.setenv("PLYWATCH_METRICS_ENABLED", "false")
     monkeypatch.setenv("PLYWATCH_METRICS_ADAPTERS", '["prometheus"]')
+    monkeypatch.setenv("PLYWATCH_METRICS_FLOWER_COMPAT_ENABLED", "false")
     monkeypatch.setenv("PLYWATCH_TRACE_HEADER", "x-correlation-id")
 
     settings = load_runtime_settings()
@@ -45,4 +46,5 @@ def test_load_runtime_settings_reads_rest_metrics_and_trace_from_env(monkeypatch
     assert settings.app.rest.redoc_url is None
     assert settings.metrics.enabled is False
     assert settings.metrics.adapters == ("prometheus",)
+    assert settings.metrics.flower_compat_enabled is False
     assert settings.trace.header == "x-correlation-id"

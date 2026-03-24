@@ -3,6 +3,11 @@
 from __future__ import annotations
 
 from plywatch.task.constants import (
+    CANVAS_KIND_CHAIN,
+    CANVAS_KINDS,
+    CANVAS_ROLE_HEAD,
+    CANVAS_ROLE_MEMBER,
+    CANVAS_ROLE_TAIL,
     CANVAS_ROOT_PREFIX,
     RUNNING_TASK_STATES,
     TASK_KIND_CALLBACK,
@@ -27,7 +32,7 @@ class TaskGraphBuilder:
     """Build public graph responses from consolidated task snapshots."""
 
     def build(self, *, task_id: str, snapshot: TaskSnapshot, items: list[TaskSnapshot]) -> TaskGraphResponse:
-        if snapshot.canvas_id is not None and snapshot.canvas_kind in {"chain", "group", "chord"}:
+        if snapshot.canvas_id is not None and snapshot.canvas_kind in CANVAS_KINDS:
             return self._build_canvas_graph(task_id=task_id, snapshot=snapshot, items=items)
         return self._build_root_graph(task_id=task_id, snapshot=snapshot, items=items)
 
@@ -75,7 +80,7 @@ class TaskGraphBuilder:
         snapshot: TaskSnapshot,
         items: list[TaskSnapshot],
     ) -> TaskGraphResponse:
-        if snapshot.canvas_kind == "chain":
+        if snapshot.canvas_kind == CANVAS_KIND_CHAIN:
             return self._build_chain_graph(task_id=task_id, snapshot=snapshot, items=items)
 
         canvas_root_id = self.canvas_root_id_for(snapshot.canvas_id)
@@ -83,7 +88,7 @@ class TaskGraphBuilder:
             TaskGraphEdgeView(
                 source=canvas_root_id,
                 target=item.uuid,
-                relation=item.canvas_role or "member",
+                relation=item.canvas_role or CANVAS_ROLE_MEMBER,
             )
             for item in items
         )
@@ -119,10 +124,16 @@ class TaskGraphBuilder:
     ) -> TaskGraphResponse:
         canvas_root_id = self.canvas_root_id_for(snapshot.canvas_id)
         ordered_items = sorted(items, key=lambda item: (item.first_seen_at, item.uuid))
-        head = next((item for item in ordered_items if item.canvas_role == "head"), ordered_items[0])
-        tail = next((item for item in ordered_items if item.canvas_role == "tail"), ordered_items[-1])
+        head = next((item for item in ordered_items if item.canvas_role == CANVAS_ROLE_HEAD), ordered_items[0])
+        tail = next((item for item in ordered_items if item.canvas_role == CANVAS_ROLE_TAIL), ordered_items[-1])
 
-        nodes: list[TaskGraphNodeView] = [self._build_canvas_root_node(canvas_root_id=canvas_root_id, canvas_kind="chain", items=ordered_items)]
+        nodes: list[TaskGraphNodeView] = [
+            self._build_canvas_root_node(
+                canvas_root_id=canvas_root_id,
+                canvas_kind=CANVAS_KIND_CHAIN,
+                items=ordered_items,
+            )
+        ]
         for item in ordered_items:
             parent_id = canvas_root_id
             if item.uuid == tail.uuid and item.uuid != head.uuid:
@@ -140,9 +151,9 @@ class TaskGraphBuilder:
                 )
             )
 
-        edges = [TaskGraphEdgeView(source=canvas_root_id, target=head.uuid, relation="head")]
+        edges = [TaskGraphEdgeView(source=canvas_root_id, target=head.uuid, relation=CANVAS_ROLE_HEAD)]
         if tail.uuid != head.uuid:
-            edges.append(TaskGraphEdgeView(source=head.uuid, target=tail.uuid, relation="chain"))
+            edges.append(TaskGraphEdgeView(source=head.uuid, target=tail.uuid, relation=CANVAS_KIND_CHAIN))
 
         return TaskGraphResponse(
             task_id=task_id,

@@ -5,10 +5,16 @@ from __future__ import annotations
 from collections.abc import Collection
 
 from plywatch.shared.raw_events import JsonValue, RawCeleryEvent
+from plywatch.worker.constants import (
+    WORKER_EVENT_HEARTBEAT,
+    WORKER_EVENT_OFFLINE,
+    WORKER_EVENT_ONLINE,
+    WORKER_EVENT_TYPES,
+    WORKER_STATE_OFFLINE,
+    WORKER_STATE_ONLINE,
+)
 from plywatch.worker.models import WorkerSnapshot
 from plywatch.worker.repository import WorkerSnapshotRepository
-
-_WORKER_EVENT_TYPES = {"worker-online", "worker-heartbeat", "worker-offline"}
 
 
 class WorkerProjector:
@@ -16,14 +22,14 @@ class WorkerProjector:
 
     @property
     def handled_event_types(self) -> Collection[str]:
-        return frozenset(_WORKER_EVENT_TYPES)
+        return WORKER_EVENT_TYPES
 
     def __init__(self, repository: WorkerSnapshotRepository) -> None:
         self._repository = repository
 
     def apply(self, event: RawCeleryEvent) -> None:
         """Update the worker projection when one worker event arrives."""
-        if event.event_type not in _WORKER_EVENT_TYPES or event.hostname is None:
+        if event.event_type not in WORKER_EVENT_TYPES or event.hostname is None:
             return
 
         current = self._repository.get(event.hostname)
@@ -85,24 +91,24 @@ def _string_value(value: JsonValue | None, current: str | None) -> str | None:
 
 
 def _mark_online(snapshot: WorkerSnapshot, captured_at: str) -> None:
-    snapshot.state = "online"
+    snapshot.state = WORKER_STATE_ONLINE
     snapshot.online_at = captured_at
     snapshot.offline_at = None
 
 
 def _mark_offline(snapshot: WorkerSnapshot, captured_at: str) -> None:
-    snapshot.state = "offline"
+    snapshot.state = WORKER_STATE_OFFLINE
     snapshot.offline_at = captured_at
 
 
 def _apply_heartbeat(snapshot: WorkerSnapshot, captured_at: str) -> None:
     snapshot.last_heartbeat_at = captured_at
-    if snapshot.state != "offline":
-        snapshot.state = "online"
+    if snapshot.state != WORKER_STATE_OFFLINE:
+        snapshot.state = WORKER_STATE_ONLINE
 
 
 _TRANSITION_HANDLERS = {
-    "worker-online": _mark_online,
-    "worker-heartbeat": _apply_heartbeat,
-    "worker-offline": _mark_offline,
+    WORKER_EVENT_ONLINE: _mark_online,
+    WORKER_EVENT_HEARTBEAT: _apply_heartbeat,
+    WORKER_EVENT_OFFLINE: _mark_offline,
 }

@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from copy import deepcopy
 from typing import Protocol
+
+from loom.core.model import LoomStruct
 
 from plywatch.task.completed_repository import CompletedTaskSnapshotRepository
 from plywatch.queue.repository import QueueSnapshotRepository
@@ -30,8 +31,7 @@ class TaskExecutionPresenceGateway(Protocol):
         ...
 
 
-@dataclass(frozen=True)
-class LostTaskReconciliationResult:
+class LostTaskReconciliationResult(LoomStruct, frozen=True, kw_only=True):
     """Outcome of one liveness reconciliation pass."""
 
     updated_task_ids: tuple[str, ...]

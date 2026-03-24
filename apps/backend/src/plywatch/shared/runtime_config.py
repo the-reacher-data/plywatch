@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 import msgspec
 from loom.celery.config import CeleryConfig
 from loom.core.config.loader import load_config, section
 from loom.core.logger import LoggerConfig
+from loom.core.model import LoomStruct
 
 from plywatch.config_paths import API_CONFIG_PATHS
 
@@ -34,6 +33,7 @@ class MetricsConfig(msgspec.Struct, kw_only=True):
     enabled: bool = False
     path: str = "/metrics"
     adapters: tuple[str, ...] = ("prometheus",)
+    flower_compat_enabled: bool = True
 
 
 class TraceConfig(msgspec.Struct, kw_only=True):
@@ -57,8 +57,7 @@ class MonitorConfig(msgspec.Struct, kw_only=True):
     task_liveness_reconcile_interval_seconds: int = 30
 
 
-@dataclass(frozen=True)
-class RuntimeSettings:
+class RuntimeSettings(LoomStruct, frozen=True, kw_only=True):
     """Resolved runtime settings for the Plywatch backend."""
 
     config_paths: tuple[str, ...]

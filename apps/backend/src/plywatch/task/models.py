@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Final, Literal
 
 import msgspec
@@ -11,6 +10,10 @@ from loom.core.response import Response
 
 from plywatch.shared.raw_events import JsonValue, RawCeleryEvent
 from plywatch.task.constants import (
+    CANVAS_KIND_CHAIN,
+    CANVAS_KIND_CHORD,
+    CANVAS_KIND_GROUP,
+    CANVAS_ROLE_TAIL,
     CANVAS_ROOT_PREFIX,
     TASK_KIND_CALLBACK,
     TASK_KIND_CALLBACK_ERROR,
@@ -58,8 +61,7 @@ _SUMMARY_PAYLOAD_FIELDS: Final[tuple[tuple[str, str], ...]] = (
     ("scheduledFor", "scheduled_for"),
 )
 
-@dataclass(frozen=True)
-class TaskTimelineEvent:
+class TaskTimelineEvent(LoomStruct, frozen=True, kw_only=True):
     """One retained lifecycle event belonging to a task."""
 
     captured_at: str
@@ -228,10 +230,13 @@ def classify_task_kind(name: str | None) -> TaskKind:
     """Classify a task from its Celery name."""
     if name is None:
         return TASK_KIND_UNKNOWN
+    normalized = name.strip()
+    if not normalized:
+        return TASK_KIND_UNKNOWN
     for prefix, kind in _TASK_KIND_PREFIXES:
-        if name.startswith(prefix):
+        if normalized.startswith(prefix):
             return kind
-    return TASK_KIND_UNKNOWN
+    return TASK_KIND_JOB
 
 
 def build_timeline_event(event: RawCeleryEvent) -> TaskTimelineEvent:
@@ -351,10 +356,8 @@ def _public_root_id(snapshot: TaskSnapshot) -> str | None:
 def _public_parent_id(snapshot: TaskSnapshot) -> str | None:
     if snapshot.canvas_kind is None or snapshot.canvas_id is None:
         return snapshot.parent_id
-    if snapshot.canvas_kind in {"group", "chord"}:
+    if snapshot.canvas_kind in {CANVAS_KIND_GROUP, CANVAS_KIND_CHORD}:
         return None
-    if snapshot.canvas_kind == "chain":
-        if snapshot.canvas_role == "tail":
-            return snapshot.parent_id
-        return None
+    if snapshot.canvas_kind == CANVAS_KIND_CHAIN:
+        return snapshot.parent_id if snapshot.canvas_role == CANVAS_ROLE_TAIL else None
     return snapshot.parent_id

@@ -6,7 +6,7 @@ from typing import Protocol
 from datetime import UTC, datetime, timedelta
 
 from plywatch.shared.in_memory_projection_repository import _parse_iso8601
-from plywatch.task.constants import COMPLETED_TASK_STATES
+from plywatch.task.constants import COMPLETED_TASK_STATES, LOST_CANDIDATE_STATES
 
 
 class ScheduledTaskLike(Protocol):
@@ -84,7 +84,7 @@ def is_lost_candidate(
 
     if lost_after_seconds <= 0:
         return False
-    if task.state not in {"received", "started"}:
+    if task.state not in LOST_CANDIDATE_STATES:
         return False
     if task.worker_hostname is None:
         return False

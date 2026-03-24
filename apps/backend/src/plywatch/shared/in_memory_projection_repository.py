@@ -66,7 +66,7 @@ class InMemoryProjectionRepository(Generic[TKey, TProjection]):
 
     def _on_remove_locked(self, key: TKey, value: TProjection) -> None:
         """Hook for subclasses to clean domain-specific indexes on removal."""
-        return None
+        pass
 
 
 def _parse_iso8601(value: str) -> datetime:

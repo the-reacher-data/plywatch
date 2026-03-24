@@ -11,6 +11,7 @@ from plywatch.shared.in_memory_projection_repository import (
     InMemoryProjectionRepository,
     _parse_iso8601,
 )
+from plywatch.worker.constants import WORKER_STATE_OFFLINE, WORKER_STATE_STALE
 from plywatch.worker.models import WorkerSnapshot
 
 
@@ -91,17 +92,17 @@ class InMemoryWorkerSnapshotRepository(
         """Derive stale states from the heartbeat timeout policy."""
         with self._lock:
             for snapshot in self._items.values():
-                if snapshot.state == "offline":
+                if snapshot.state == WORKER_STATE_OFFLINE:
                     continue
                 if _is_stale(snapshot.last_seen_at, self._stale_after_seconds):
-                    snapshot.state = "stale"
+                    snapshot.state = WORKER_STATE_STALE
             self._prune_locked()
 
     def _with_derived_state(self, snapshot: WorkerSnapshot | None) -> WorkerSnapshot | None:
         if snapshot is None:
             return None
-        if snapshot.state != "offline" and _is_stale(snapshot.last_seen_at, self._stale_after_seconds):
-            snapshot.state = "stale"
+        if snapshot.state != WORKER_STATE_OFFLINE and _is_stale(snapshot.last_seen_at, self._stale_after_seconds):
+            snapshot.state = WORKER_STATE_STALE
         return snapshot
 
     def clear(self) -> int:

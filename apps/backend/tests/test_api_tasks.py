@@ -6,6 +6,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from plywatch.main import create_app
+from plywatch.monitor.use_cases import _redact_connection_url
 from plywatch.shared.raw_events import build_raw_event
 
 
@@ -913,5 +914,15 @@ def test_overview_redacts_broker_url_credentials(monkeypatch) -> None:
 
     assert overview.status_code == 200
     broker_url = overview.json()["brokerUrl"]
-    assert broker_url == "pyamqp://guest:***@rabbitmq:5672//"
-    assert "guest:guest@" not in broker_url
+    assert broker_url == "pyamqp://***@rabbitmq:5672//"
+    assert "guest" not in broker_url
+
+
+def test_redact_connection_url_redacts_query_values() -> None:
+    value = _redact_connection_url("redis://user:secret@redis:6379/0?ssl_cert_reqs=required&api_key=abc")
+    assert value == "redis://***@redis:6379/0?ssl_cert_reqs=***&api_key=***"
+
+
+def test_redact_connection_url_handles_invalid_port() -> None:
+    value = _redact_connection_url("redis://user:secret@redis:not-a-port/0")
+    assert value == "redis://***@redis/0"

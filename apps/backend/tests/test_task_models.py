@@ -14,10 +14,12 @@ _GRAPH_BUILDER = TaskGraphBuilder()
 
 def test_classify_task_kind_covers_supported_prefixes_and_fallbacks() -> None:
     assert classify_task_kind(None) == "unknown"
+    assert classify_task_kind("   ") == "unknown"
     assert classify_task_kind("loom.callback_error.RecordFailureCallback") == "callback_error"
     assert classify_task_kind("loom.callback.RecordSuccessCallback") == "callback"
     assert classify_task_kind("loom.job.HelloSuccessJob") == "job"
-    assert classify_task_kind("other.namespace.Task") == "unknown"
+    assert classify_task_kind("other.namespace.Task") == "job"
+    assert classify_task_kind("lab.native.echo") == "job"
 
 
 def test_public_parent_id_returns_parent_for_non_canvas_tasks() -> None:

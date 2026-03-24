@@ -13,9 +13,10 @@ from typing import Annotated, Any
 
 import prometheus_client
 from pydantic import BaseModel
-from fastapi import Body, FastAPI
+from fastapi import Body, FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+from fastapi.responses import Response
 from fastapi.responses import StreamingResponse
 from loom.celery.config import create_celery_app
 from loom.core.bootstrap import create_kernel
@@ -48,17 +49,24 @@ from plywatch.schedule.repository import ScheduleRunSnapshot, ScheduleRunSnapsho
 from plywatch.schedule.use_cases import ListSchedulesUseCase
 from plywatch.shared.celery_events import CeleryEventConsumer
 from plywatch.shared.event_dispatcher import EventDispatcher
+from plywatch.shared.frontend_events import (
+    build_frontend_events,
+    task_exists_before_event,
+    task_lost_message,
+    worker_exists_before_event,
+)
 from plywatch.shared.monitor_metrics import (
     CompositeMonitorMetricsAdapter,
     CompositeRuntimeMetricsAdapter,
     MonitorMetricsAdapter,
     MonitorMetricsContext,
+    MONITOR_METRICS_ADAPTER_PROMETHEUS,
 )
 from plywatch.shared.prometheus_monitor_adapter import (
     build_prometheus_monitor_adapter,
     build_prometheus_runtime_adapter,
 )
-from plywatch.shared.raw_events import EventCounterStore, RawEventStore
+from plywatch.shared.raw_events import EventCounterStore, RawCeleryEvent, RawEventStore
 from plywatch.shared.runtime_config import RuntimeSettings, load_runtime_settings
 from plywatch.shared.sse import SseFanout
 from plywatch.task.interface import TaskRestInterface
@@ -152,7 +160,7 @@ def create_app(*, start_consumer: bool = True) -> FastAPI:
     )
     _configure_app_middleware(app, runtime.settings)
     _register_operational_routes(app, runtime)
-    _mount_frontend(app)
+    _mount_frontend(app, runtime.settings)
     _attach_runtime_state(app, runtime)
     return app
 
@@ -306,12 +314,12 @@ def _build_event_handler(
     queue_repository: QueueSnapshotRepository,
     sse_fanout: SseFanout,
     monitor_metrics_adapter: MonitorMetricsAdapter | None,
-) -> Callable[[Any], None]:
+) -> Callable[[RawCeleryEvent], None]:
     """Create the event callback used by the Celery event consumer."""
 
-    def _on_event(event: Any) -> None:
-        task_exists_before = _task_exists_before_event(event, repositories.task_repository)
-        worker_exists_before = _worker_exists_before_event(event, worker_repository)
+    def _on_event(event: RawCeleryEvent) -> None:
+        task_exists_before = task_exists_before_event(event, repositories.task_repository)
+        worker_exists_before = worker_exists_before_event(event, worker_repository)
         event_dispatcher.dispatch(event)
         _record_monitor_projection_metrics(
             event=event,
@@ -332,27 +340,9 @@ def _build_event_handler(
     return _on_event
 
 
-def _task_exists_before_event(event: Any, task_repository: TaskSnapshotRepository) -> bool:
-    """Return whether the task targeted by the event already existed."""
-    return bool(
-        event.uuid is not None
-        and event.event_type.startswith("task-")
-        and task_repository.get(event.uuid) is not None
-    )
-
-
-def _worker_exists_before_event(event: Any, worker_repository: WorkerSnapshotRepository) -> bool:
-    """Return whether the worker targeted by the event already existed."""
-    return bool(
-        event.hostname is not None
-        and event.event_type.startswith("worker-")
-        and worker_repository.get(event.hostname) is not None
-    )
-
-
 def _record_monitor_projection_metrics(
     *,
-    event: Any,
+    event: RawCeleryEvent,
     monitor_metrics_adapter: MonitorMetricsAdapter | None,
     raw_event_store: RawEventStore,
     task_repository: TaskSnapshotRepository,
@@ -375,14 +365,14 @@ def _record_monitor_projection_metrics(
 
 def _publish_frontend_events(
     *,
-    event: Any,
+    event: RawCeleryEvent,
     sse_fanout: SseFanout,
     task_exists_before: bool,
     worker_exists_before: bool,
     task_repository: TaskSnapshotRepository,
 ) -> None:
     """Push the derived frontend SSE messages for one projected event."""
-    for message in _build_frontend_events(
+    for message in build_frontend_events(
         event,
         task_exists_before=task_exists_before,
         worker_exists_before=worker_exists_before,
@@ -432,20 +422,7 @@ async def _reconcile_lost_tasks_loop(runtime: MonitorRuntime) -> None:
             logger.exception("Task liveness reconciliation failed")
             continue
         for task_id in result.updated_task_ids:
-            runtime.sse_fanout.publish(_task_lost_message(task_id))
-
-
-def _task_lost_message(task_id: str) -> dict[str, object]:
-    """Build the SSE payload for one task marked as lost."""
-    return {
-        "type": "task.updated",
-        "eventType": "task-lost",
-        "taskId": task_id,
-        "workerHostname": None,
-        "queueName": None,
-        "capturedAt": None,
-        "taskName": None,
-    }
+            runtime.sse_fanout.publish(task_lost_message(task_id))
 
 
 def _configure_app_middleware(app: FastAPI, settings: RuntimeSettings) -> None:
@@ -454,11 +431,19 @@ def _configure_app_middleware(app: FastAPI, settings: RuntimeSettings) -> None:
         app.add_middleware(TraceIdMiddleware, header=settings.trace.header)
     if not _prometheus_metrics_enabled(settings):
         return
+    metrics_path = settings.metrics.path.rstrip("/") or "/metrics"
     app.add_middleware(PrometheusMiddleware, registry=prometheus_client.REGISTRY)
-    app.mount(
-        settings.metrics.path,
-        prometheus_client.make_asgi_app(registry=prometheus_client.REGISTRY),
-    )
+
+    @app.get(metrics_path, include_in_schema=False)
+    async def metrics_without_trailing_slash() -> Response:
+        return Response(
+            content=prometheus_client.generate_latest(prometheus_client.REGISTRY),
+            media_type="text/plain; version=0.0.4; charset=utf-8",
+        )
+
+    @app.get(f"{metrics_path}/", include_in_schema=False)
+    async def metrics_with_trailing_slash() -> None:
+        raise HTTPException(status_code=404, detail="Not Found")
 
 
 def _register_operational_routes(app: FastAPI, runtime: MonitorRuntime) -> None:
@@ -602,72 +587,6 @@ def build_plywatch_default_repository(context: RepositoryBuildContext) -> Any:
     )
 
 
-def _build_frontend_events(
-    event: Any,
-    *,
-    task_exists_before: bool,
-    worker_exists_before: bool,
-    task_repository: TaskSnapshotRepository,
-) -> tuple[dict[str, object], ...]:
-    """Convert one raw monitor event into frontend-oriented SSE messages."""
-    event_type = str(getattr(event, "event_type", "unknown"))
-    payload = getattr(event, "payload", {})
-    task_id = getattr(event, "uuid", None)
-    queue_name = payload.get("queue") if isinstance(payload, dict) else None
-    task_name = payload.get("name") if isinstance(payload, dict) else None
-
-    if event_type.startswith("task-") and task_id is not None:
-        snapshot = task_repository.get(task_id)
-        if snapshot is not None:
-            queue_name = snapshot.queue or queue_name
-            task_name = snapshot.name or task_name
-        return (
-            {
-                "type": "task.updated" if task_exists_before else "task.created",
-                "eventType": event_type,
-                "taskId": task_id,
-                "workerHostname": getattr(event, "hostname", None),
-                "queueName": queue_name,
-                "capturedAt": getattr(event, "captured_at", None),
-                "taskName": task_name,
-            },
-            {
-                "type": "queue.updated",
-                "eventType": event_type,
-                "taskId": task_id,
-                "workerHostname": getattr(event, "hostname", None),
-                "queueName": queue_name,
-                "capturedAt": getattr(event, "captured_at", None),
-                "taskName": task_name,
-            },
-        )
-
-    if event_type.startswith("worker-"):
-        return (
-            {
-                "type": "worker.updated" if worker_exists_before else "worker.created",
-                "eventType": event_type,
-                "taskId": task_id,
-                "workerHostname": getattr(event, "hostname", None),
-                "queueName": queue_name,
-                "capturedAt": getattr(event, "captured_at", None),
-                "taskName": task_name,
-            },
-        )
-
-    return (
-        {
-            "type": "raw.event",
-            "eventType": event_type,
-            "taskId": task_id,
-            "workerHostname": getattr(event, "hostname", None),
-            "queueName": queue_name,
-            "capturedAt": getattr(event, "captured_at", None),
-            "taskName": task_name,
-        },
-    )
-
-
 def _build_metrics_adapters(
     settings: RuntimeSettings,
 ) -> tuple[MetricsAdapter | None, MonitorMetricsAdapter | None]:
@@ -679,13 +598,18 @@ def _build_metrics_adapters(
     monitor_adapters: list[MonitorMetricsAdapter] = []
 
     for adapter_name in settings.metrics.adapters:
-        if adapter_name == "prometheus":
+        if adapter_name == MONITOR_METRICS_ADAPTER_PROMETHEUS:
             runtime_adapters.append(build_prometheus_runtime_adapter(registry=prometheus_client.REGISTRY))
-            monitor_adapters.append(build_prometheus_monitor_adapter(registry=prometheus_client.REGISTRY))
+            monitor_adapters.append(
+                build_prometheus_monitor_adapter(
+                    registry=prometheus_client.REGISTRY,
+                    enable_flower_compat=settings.metrics.flower_compat_enabled,
+                )
+            )
             continue
         raise RuntimeError(
             f"Unsupported Plywatch metrics adapter {adapter_name!r}. "
-            "Supported adapters: ('prometheus',)."
+            f"Supported adapters: ({MONITOR_METRICS_ADAPTER_PROMETHEUS!r},)."
         )
 
     runtime_adapter: MetricsAdapter | None
@@ -709,10 +633,31 @@ def _build_metrics_adapters(
 
 def _prometheus_metrics_enabled(settings: RuntimeSettings) -> bool:
     """Return whether Prometheus exposition is enabled for this app."""
-    return settings.metrics.enabled and "prometheus" in settings.metrics.adapters
+    return settings.metrics.enabled and MONITOR_METRICS_ADAPTER_PROMETHEUS in settings.metrics.adapters
 
 
-def _mount_frontend(app: FastAPI) -> None:
+def _is_reserved_operational_path(path: str, *, metrics_path: str) -> bool:
+    """Return whether one frontend fallback path is reserved for backend operations."""
+    normalized = path.strip("/")
+    if not normalized:
+        return False
+
+    if normalized == "api" or normalized.startswith("api/"):
+        return True
+
+    for reserved in ("health", "docs", "redoc", "openapi.json"):
+        if normalized == reserved or normalized.startswith(f"{reserved}/"):
+            return True
+
+    normalized_metrics = metrics_path.strip("/")
+    if normalized_metrics and (
+        normalized == normalized_metrics or normalized.startswith(f"{normalized_metrics}/")
+    ):
+        return True
+    return False
+
+
+def _mount_frontend(app: FastAPI, settings: RuntimeSettings) -> None:
     """Mount the compiled Svelte frontend when the build output exists."""
     build_dir = Path(__file__).resolve().parents[4] / "apps" / "web" / "build"
     index_path = build_dir / "index.html"
@@ -729,6 +674,8 @@ def _mount_frontend(app: FastAPI) -> None:
 
     @app.get("/{path:path}", include_in_schema=False)
     async def frontend_path(path: str) -> FileResponse:
+        if _is_reserved_operational_path(path, metrics_path=settings.metrics.path):
+            raise HTTPException(status_code=404, detail="Not Found")
         candidate = build_dir / path
         if candidate.is_file():
             return FileResponse(candidate)

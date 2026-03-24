@@ -7,6 +7,7 @@ from loom.core.repository.abc.query import CursorResult, FilterGroup, FilterSpec
 from loom.core.use_case.use_case import UseCase
 
 from plywatch.task.constants import (
+    CANVAS_KINDS,
     TASK_SECTION_FAILED,
     TASK_SECTION_QUEUED,
     TASK_SECTION_RUNNING,
@@ -164,7 +165,7 @@ class GetTaskGraphUseCase(UseCase[TaskSnapshot, TaskGraphResponse]):
             raise NotFound("TaskSnapshot", id=task_id)
         items = (
             self._task_read_repository.list_by_canvas_id(snapshot.canvas_id)
-            if snapshot.canvas_id is not None and snapshot.canvas_kind in {"chain", "group", "chord"}
+            if snapshot.canvas_id is not None and snapshot.canvas_kind in CANVAS_KINDS
             else self._task_read_repository.list_by_root(snapshot.root_id or snapshot.uuid)
         )
         return _TASK_GRAPH_BUILDER.build(task_id=task_id, snapshot=snapshot, items=items)

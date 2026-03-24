@@ -111,6 +111,91 @@ def test_prometheus_monitor_adapter_records_plywatch_and_flower_metrics() -> Non
     )
 
 
+def test_prometheus_monitor_adapter_can_disable_flower_compat_metrics() -> None:
+    registry = CollectorRegistry()
+    adapter = PrometheusPlywatchMetricsAdapter(
+        registry=registry,
+        enable_flower_compat=False,
+    )
+    raw_store = RawEventStore(50)
+    task_repository = InMemoryTaskSnapshotRepository(max_tasks=100, max_age_seconds=3600)
+    worker_repository = InMemoryWorkerSnapshotRepository(
+        max_age_seconds=3600,
+        stale_after_seconds=15,
+    )
+    queue_repository = InMemoryQueueSnapshotRepository(max_age_seconds=3600)
+    task_projector = TaskProjector(task_repository)
+    worker_projector = WorkerProjector(worker_repository)
+    queue_projector = QueueProjector(queue_repository)
+    context = MonitorMetricsContext(
+        raw_event_store=raw_store,
+        task_repository=task_repository,
+        worker_repository=worker_repository,
+        queue_repository=queue_repository,
+    )
+
+    events = [
+        build_raw_event(
+            {
+                "type": "worker-heartbeat",
+                "hostname": "celery@worker-1",
+                "active": 1,
+                "processed": 2,
+            }
+        ),
+        build_raw_event(
+            {
+                "type": "task-sent",
+                "uuid": "task-1",
+                "name": "loom.job.HelloSuccessJob",
+                "queue": "default",
+                "routing_key": "default",
+            }
+        ),
+        build_raw_event(
+            {
+                "type": "task-received",
+                "uuid": "task-1",
+                "hostname": "celery@worker-1",
+                "name": "loom.job.HelloSuccessJob",
+            }
+        ),
+        build_raw_event(
+            {
+                "type": "task-started",
+                "uuid": "task-1",
+                "hostname": "celery@worker-1",
+            }
+        ),
+        build_raw_event(
+            {
+                "type": "task-succeeded",
+                "uuid": "task-1",
+                "hostname": "celery@worker-1",
+                "result": "{'ok': true}",
+            }
+        ),
+    ]
+
+    for event in events:
+        raw_store.append(event)
+        task_projector.apply(event)
+        worker_projector.apply(event)
+        queue_projector.apply(event)
+        adapter.record_projection_event(event, context=context)
+
+    payload = generate_latest(registry).decode("utf-8")
+
+    assert 'plywatch_celery_events_total{event_type="task-sent"} 1.0' in payload
+    assert 'plywatch_task_queue_wait_seconds_count{kind="job",queue="default"} 1.0' in payload
+    assert 'plywatch_task_runtime_seconds_count{kind="job",queue="default"} 1.0' in payload
+    assert "flower_events_total" not in payload
+    assert "flower_task_prefetch_time_seconds_count" not in payload
+    assert "flower_task_runtime_seconds_count" not in payload
+    assert "flower_worker_online" not in payload
+    assert "flower_worker_number_of_currently_executing_tasks" not in payload
+
+
 def test_composite_runtime_metrics_adapter_forwards_events_to_all_adapters() -> None:
     received: list[tuple[str, object]] = []
 

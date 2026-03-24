@@ -2,20 +2,21 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Protocol
 
 from loom.core.engine.events import RuntimeEvent
 from loom.core.engine.metrics import MetricsAdapter
+from loom.core.model import LoomStruct
 
 from plywatch.queue.repository import QueueSnapshotRepository
 from plywatch.shared.raw_events import RawCeleryEvent, RawEventStore
 from plywatch.task.repository import TaskSnapshotRepository
 from plywatch.worker.repository import WorkerSnapshotRepository
 
+MONITOR_METRICS_ADAPTER_PROMETHEUS = "prometheus"
 
-@dataclass(frozen=True)
-class MonitorMetricsContext:
+
+class MonitorMetricsContext(LoomStruct, frozen=True, kw_only=True):
     """Projection state passed to monitor metrics adapters."""
 
     raw_event_store: RawEventStore

@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import base64
 import json
-from dataclasses import dataclass
 from datetime import datetime
+
+from loom.core.model import LoomStruct
 
 from plywatch.task.constants import (
     CANVAS_ROOT_PREFIX,
@@ -19,6 +20,7 @@ from plywatch.task.constants import (
     TASK_SECTION_QUEUED,
     TASK_SECTION_RUNNING,
     TASK_SECTION_SUCCEEDED,
+    TASK_STATE_LOST,
     TASK_STATE_FAILED,
     TASK_STATE_SENT,
     TASK_STATE_STARTED,
@@ -36,23 +38,20 @@ _SECTION_TO_AGGREGATE_STATE: dict[TaskSectionName, TaskState] = {
 }
 
 
-@dataclass(frozen=True)
-class TaskFamilyAggregate:
+class TaskFamilyAggregate(LoomStruct, frozen=True, kw_only=True):
     aggregate_state: TaskState
     completed_count: int
     total_count: int
     has_visible_root: bool
 
 
-@dataclass(frozen=True)
-class TaskFamily:
+class TaskFamily(LoomStruct, frozen=True, kw_only=True):
     key: str
     root: TaskSnapshot
     items: tuple[TaskSnapshot, ...]
 
 
-@dataclass(frozen=True)
-class TaskFamilyPage:
+class TaskFamilyPage(LoomStruct, frozen=True, kw_only=True):
     items: tuple[TaskSnapshot, ...]
     next_cursor: str | None
     has_next: bool
@@ -132,11 +131,11 @@ class TaskFamilyClassifier:
     def _is_failed_family(self, family: TaskFamily) -> bool:
         if family.root.state == TASK_STATE_FAILED:
             return True
-        if family.root.state == "lost":
+        if family.root.state == TASK_STATE_LOST:
             return True
         if family.root.kind == TASK_KIND_CALLBACK_ERROR:
             return True
-        return any(item.kind == TASK_KIND_JOB and item.state in {TASK_STATE_FAILED, "lost"} for item in family.items)
+        return any(item.kind == TASK_KIND_JOB and item.state in {TASK_STATE_FAILED, TASK_STATE_LOST} for item in family.items)
 
     def _pick_root(self, *, key: str, items: list[TaskSnapshot]) -> TaskSnapshot:
         ids = {item.uuid for item in items}

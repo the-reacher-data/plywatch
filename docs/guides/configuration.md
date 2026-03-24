@@ -21,6 +21,36 @@ export PLYWATCH_MAX_TASKS=5000
 export PLYWATCH_MAX_COMPLETED_TASKS=50000
 ```
 
+## Local backend run with `uv` (metrics check)
+
+```bash
+cd apps/backend
+uv sync --dev
+
+export PLYWATCH_CELERY_BROKER_URL=redis://localhost:6379/0
+export PLYWATCH_CELERY_RESULT_BACKEND=redis://localhost:6379/1
+export PLYWATCH_METRICS_ENABLED=true
+export PLYWATCH_METRICS_PATH=/metrics
+
+uv run -- python -m uvicorn plywatch.main:app --app-dir src --host 0.0.0.0 --port 8080
+```
+
+In another terminal:
+
+```bash
+curl -i http://127.0.0.1:8080/metrics
+```
+
+Expected result:
+
+- `HTTP/1.1 200 OK`
+- `content-type: text/plain; version=0.0.4; charset=utf-8`
+- body with Prometheus families (`# HELP`, `# TYPE`, `plywatch_*` and optionally `flower_*` when compatibility is enabled)
+
+Canonical metrics scrape path is exactly `PLYWATCH_METRICS_PATH` (default `/metrics`).
+Requests to `/metrics/` return `404`.
+If metrics is disabled (or the path does not match `PLYWATCH_METRICS_PATH`), the endpoint returns `404` instead of frontend HTML.
+
 ## Complex values format
 
 Use JSON-like strings for list and null values because those keys use `oc.decode`.
@@ -69,6 +99,7 @@ export PLYWATCH_REST_REDOC_URL=null
 | `metrics.enabled` | `PLYWATCH_METRICS_ENABLED` (fallback: `METRICS_ENABLED`) | `true` |
 | `metrics.path` | `PLYWATCH_METRICS_PATH` (fallback: `METRICS_PATH`) | `/metrics` |
 | `metrics.adapters` | `PLYWATCH_METRICS_ADAPTERS` | `["prometheus"]` |
+| `metrics.flower_compat_enabled` | `PLYWATCH_METRICS_FLOWER_COMPAT_ENABLED` (fallback: `METRICS_FLOWER_COMPAT_ENABLED`) | `true` |
 | `monitor.raw_event_limit` | `PLYWATCH_RAW_EVENT_LIMIT` | `500` |
 | `monitor.raw_event_buffer_excluded_types` | `PLYWATCH_RAW_EVENT_BUFFER_EXCLUDED_TYPES` | `["worker-heartbeat"]` |
 | `monitor.max_tasks` | `PLYWATCH_MAX_TASKS` | `2000` |
@@ -94,6 +125,8 @@ export PLYWATCH_REST_REDOC_URL=null
 | `celery.task_serializer` | `PLYWATCH_CELERY_TASK_SERIALIZER` | `json` |
 | `celery.result_serializer` | `PLYWATCH_CELERY_RESULT_SERIALIZER` | `json` |
 | `celery.accept_content` | `PLYWATCH_CELERY_ACCEPT_CONTENT` | `["json"]` |
+
+Security note: `/api/overview` returns `brokerUrl` with sensitive parts redacted. User info (`username[:password]@`) is always masked and query parameter values are masked.
 
 ### `cache.yaml` (`cache`)
 

@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Literal
-
 import msgspec
 from loom.core.model import LoomStruct
 from loom.core.response import Response
 
-WorkerState = Literal["online", "stale", "offline"]
+from plywatch.worker.constants import WorkerStateName
+
+WorkerState = WorkerStateName
 
 
 class WorkerSnapshot(LoomStruct, kw_only=True):

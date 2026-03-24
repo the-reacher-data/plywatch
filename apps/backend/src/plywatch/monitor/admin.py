@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Protocol
+
+from loom.core.model import LoomStruct
 
 from plywatch.queue.repository import QueueSnapshotRepository
 from plywatch.schedule.repository import ScheduleRunSnapshotRepository
@@ -14,16 +15,14 @@ from plywatch.task.repository import TaskSnapshotRepository
 from plywatch.worker.repository import WorkerSnapshotRepository
 
 
-@dataclass(frozen=True)
-class MonitorResetResult:
+class MonitorResetResult(LoomStruct, frozen=True, kw_only=True):
     removed_tasks: int
     removed_workers: int
     removed_queues: int
     removed_raw_events: int
 
 
-@dataclass(frozen=True)
-class MonitorRemovalResult:
+class MonitorRemovalResult(LoomStruct, frozen=True, kw_only=True):
     removed_count: int
     removed_ids: tuple[str, ...]
 

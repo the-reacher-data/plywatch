@@ -11,6 +11,7 @@ metrics:
   enabled: ${oc.decode:${oc.env:PLYWATCH_METRICS_ENABLED,${oc.env:METRICS_ENABLED,true}}}
   path: ${oc.env:PLYWATCH_METRICS_PATH,${oc.env:METRICS_PATH,/metrics}}
   adapters: ${oc.decode:${oc.env:PLYWATCH_METRICS_ADAPTERS,["prometheus"]}}
+  flower_compat_enabled: ${oc.decode:${oc.env:PLYWATCH_METRICS_FLOWER_COMPAT_ENABLED,${oc.env:METRICS_FLOWER_COMPAT_ENABLED,true}}}
 
 monitor:
   raw_event_limit: ${oc.decode:${oc.env:PLYWATCH_RAW_EVENT_LIMIT,500}}

@@ -16,6 +16,13 @@
 - it is not a persistent business database
 - it does not replace Celery broker semantics
 
+## Internal model conventions
+
+- default: internal DTOs and projection/value models use `LoomStruct`
+- justified exceptions:
+  - wiring-only runtime containers (`MonitorRuntime`, `RuntimeRepositories`)
+  - mutable local repository bookkeeping state (`_TrackedTask`)
+
 ## Related references
 
 - repository overview in [docs overview](../README.md)

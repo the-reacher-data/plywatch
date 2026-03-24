@@ -108,31 +108,45 @@ def _redact_connection_url(url: str) -> str:
     if parsed.scheme == "":
         return "***redacted***"
 
-    hostname = parsed.hostname or ""
+    try:
+        hostname = parsed.hostname or ""
+    except ValueError:
+        hostname = ""
     if ":" in hostname and not hostname.startswith("["):
         hostname = f"[{hostname}]"
-    port = f":{parsed.port}" if parsed.port is not None else ""
+    try:
+        parsed_port = parsed.port
+    except ValueError:
+        parsed_port = None
+    port = f":{parsed_port}" if parsed_port is not None else ""
 
-    userinfo = ""
-    if parsed.username is not None:
-        if parsed.password is not None:
-            userinfo = f"{parsed.username}:***@"
-        else:
-            userinfo = f"{parsed.username}@"
-    elif parsed.password is not None:
-        userinfo = "***@"
+    try:
+        username = parsed.username
+    except ValueError:
+        username = None
+    try:
+        password = parsed.password
+    except ValueError:
+        password = None
+
+    userinfo = "***@" if username is not None or password is not None else ""
 
     safe_query = ""
     if parsed.query:
         safe_query = urlencode(
             [(key, "***") for key, _ in parse_qsl(parsed.query, keep_blank_values=True)],
             doseq=True,
+            safe="*",
         )
+
+    authority = f"{userinfo}{hostname}{port}"
+    if authority == "" and parsed.netloc:
+        authority = "***"
 
     return urlunsplit(
         (
             parsed.scheme,
-            f"{userinfo}{hostname}{port}",
+            authority,
             parsed.path,
             safe_query,
             "",

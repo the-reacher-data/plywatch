@@ -2,16 +2,15 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Any
 
 from celery import Celery
+from loom.core.model import LoomStruct
 
 from plywatch.task.liveness import TaskExecutionPresenceGateway, TaskExecutionPresenceSnapshot
 
 
-@dataclass(frozen=True)
-class CeleryTaskExecutionPresenceSnapshot(TaskExecutionPresenceSnapshot):
+class CeleryTaskExecutionPresenceSnapshot(LoomStruct, frozen=True, kw_only=True):
     """Immutable live-task lookup built from Celery inspect calls."""
 
     task_ids_by_worker: dict[str, frozenset[str]]

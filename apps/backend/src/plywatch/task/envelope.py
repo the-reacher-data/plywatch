@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from loom.core.model import LoomStruct
 
 from plywatch.shared.raw_events import JsonValue, RawCeleryEvent
 from plywatch.task.constants import (
@@ -28,8 +28,7 @@ STATE_BY_EVENT: dict[str, TaskState] = {
 }
 
 
-@dataclass(frozen=True)
-class TaskEnvelope:
+class TaskEnvelope(LoomStruct, frozen=True, kw_only=True):
     """Stable internal task event model used by projectors."""
 
     task_id: str
