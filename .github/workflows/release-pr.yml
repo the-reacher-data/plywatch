@@ -38,6 +38,13 @@ jobs:
           branch: ${{ env.RELEASE_BRANCH }}
           prerelease: "false"
 
+      - name: Preserve existing changelog
+        if: ${{ steps.version.outputs.deploy == 'true' && hashFiles('CHANGELOG.md') != '' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp CHANGELOG.md "$RUNNER_TEMP/CHANGELOG.previous.md"
+
       - name: Generate release changelog
         id: changelog
         if: ${{ steps.version.outputs.deploy == 'true' && github.event_name != 'workflow_dispatch' }}
@@ -62,6 +69,24 @@ jobs:
 
           Manual release PR triggered from branch: ${SOURCE_BRANCH}
           EOF
+
+      - name: Keep previous changelog history
+        if: ${{ steps.version.outputs.deploy == 'true' && hashFiles('CHANGELOG.md') != '' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          PREVIOUS="$RUNNER_TEMP/CHANGELOG.previous.md"
+          if [ ! -s "$PREVIOUS" ]; then
+            exit 0
+          fi
+
+          PREVIOUS_HEADER="$(sed -n '1p' "$PREVIOUS")"
+          if [ -n "$PREVIOUS_HEADER" ] && grep -Fqx "$PREVIOUS_HEADER" CHANGELOG.md; then
+            exit 0
+          fi
+
+          printf '\n\n' >> CHANGELOG.md
+          cat "$PREVIOUS" >> CHANGELOG.md
 
       - name: Sync project version
         if: ${{ steps.version.outputs.deploy == 'true' }}
