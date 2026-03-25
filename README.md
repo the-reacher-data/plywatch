@@ -9,9 +9,7 @@
 [![Python](https://img.shields.io/badge/python-3.11-informational?logo=python&logoColor=white)](https://www.python.org/)
 [![License](https://img.shields.io/github/license/the-reacher-data/plywatch)](LICENSE)
 
-<!-- Demo GIF (enable once file exists at docs/assets/plywatch-demo.gif)
-![Plywatch demo](docs/assets/plywatch-demo.gif)
--->
+![Plywatch demo](docs/_static/gif_overwiev.gif)
 
 Ephemeral Celery monitoring with a self-contained, single-container deployment model. Built as an open-source alternative to Flower with a cleaner architecture and better UX.
 
