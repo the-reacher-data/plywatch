@@ -9,17 +9,21 @@
 [![Python](https://img.shields.io/badge/python-3.11-informational?logo=python&logoColor=white)](https://www.python.org/)
 [![License](https://img.shields.io/github/license/the-reacher-data/plywatch)](LICENSE)
 
+<!-- Demo GIF (enable once file exists at docs/assets/plywatch-demo.gif)
+![Plywatch demo](docs/assets/plywatch-demo.gif)
+-->
+
 Ephemeral Celery monitoring with a self-contained, single-container deployment model. Built as an open-source alternative to Flower with a cleaner architecture and better UX.
 
 ## Quick start
 
 ```bash
-docker run -p 8080:8080 \
+docker run -p 5555:5555 \
   -e PLYWATCH_CELERY_BROKER_URL=redis://your-redis:6379/0 \
   thereacherdata/plywatch:latest
 ```
 
-Open `http://localhost:8080` to access the monitoring UI.
+Open `http://localhost:5555` to access the monitoring UI.
 
 ## Security notice
 
@@ -103,7 +107,7 @@ make logs
 
 The local stack exposes:
 
-- Monitor UI and API → `http://127.0.0.1:8080`
+- Monitor UI and API → `http://127.0.0.1:5555`
 - Lab producer API → `http://127.0.0.1:8090`
 - RabbitMQ-backed monitor UI and API → `http://127.0.0.1:8081`
 - RabbitMQ-backed lab producer API → `http://127.0.0.1:8091`
