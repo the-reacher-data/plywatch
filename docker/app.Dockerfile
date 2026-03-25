@@ -33,7 +33,8 @@ COPY apps/backend/pyproject.toml ./apps/backend/pyproject.toml
 COPY apps/backend/src ./apps/backend/src
 COPY apps/backend/config ./apps/backend/config
 
-RUN python -m venv /opt/venv
+# Runtime does not need pip/wheel; keep them out of the venv to reduce CVE surface.
+RUN python -m venv /opt/venv --without-pip
 
 RUN --mount=type=cache,target=/root/.cache/uv,sharing=locked \
     uv pip install --python /opt/venv/bin/python ./apps/backend
@@ -44,9 +45,13 @@ FROM python:3.11-slim AS runtime
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PYTHONFAULTHANDLER=1 \
+    PYTHONPATH="/app/apps/backend/src" \
     PATH="/opt/venv/bin:$PATH"
 
 WORKDIR /app
+
+# Keep Python packaging tools on non-vulnerable versions in the runtime layer.
+RUN python -m pip install --no-cache-dir --upgrade "pip==26.0.1" "wheel==0.46.2" "setuptools==82.0.1"
 
 # Dedicated non-root user
 RUN groupadd -r plywatch && useradd -r -g plywatch -s /sbin/nologin plywatch
@@ -62,14 +67,14 @@ RUN chown -R plywatch:plywatch /opt/venv
 
 USER plywatch
 
-EXPOSE 8080
+EXPOSE 5555
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8080/health')"
+  CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:5555/health')"
 
 CMD ["uvicorn", "plywatch.main:app", \
      "--app-dir", "/app/apps/backend/src", \
-     "--host", "0.0.0.0", "--port", "8080", \
+     "--host", "0.0.0.0", "--port", "5555", \
      "--loop", "uvloop", "--http", "httptools", \
      "--proxy-headers", "--forwarded-allow-ips", "*", \
      "--no-server-header"]
