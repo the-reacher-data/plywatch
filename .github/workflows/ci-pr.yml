@@ -53,7 +53,7 @@ jobs:
       - name: Quality report (strict gate)
         id: quality
         continue-on-error: true
-        uses: the-reacher-data/loom-actions/actions/python/quality-report@e731576f4f9cf4ec2b36fddfc895d328c856d29f # v1
+        uses: MassiveDataScope/loom-actions/actions/python/quality-report@e731576f4f9cf4ec2b36fddfc895d328c856d29f # v1
         with:
           src-dir: apps/backend/src
           test-dir: apps/backend/tests
@@ -64,7 +64,7 @@ jobs:
 
       - name: Publish PR quality comment
         if: ${{ always() && steps.quality.outputs.report-file != '' }}
-        uses: the-reacher-data/loom-actions/actions/core/pr-comment-update@e731576f4f9cf4ec2b36fddfc895d328c856d29f # v1
+        uses: MassiveDataScope/loom-actions/actions/core/pr-comment-update@e731576f4f9cf4ec2b36fddfc895d328c856d29f # v1
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           tags: "<!-- plywatch-quality-report -->"
@@ -72,7 +72,7 @@ jobs:
 
       - name: Compute candidate prerelease version
         id: version
-        uses: the-reacher-data/loom-actions/actions/release/versioning-branch-semantic@e731576f4f9cf4ec2b36fddfc895d328c856d29f # v1
+        uses: MassiveDataScope/loom-actions/actions/release/versioning-branch-semantic@e731576f4f9cf4ec2b36fddfc895d328c856d29f # v1
         with:
           branch: ${{ github.head_ref }}
           prerelease: "true"
@@ -80,7 +80,7 @@ jobs:
       - name: Generate changelog preview
         id: changelog
         continue-on-error: true
-        uses: the-reacher-data/loom-actions/actions/release/changelog-conventional-commit@e731576f4f9cf4ec2b36fddfc895d328c856d29f # v1
+        uses: MassiveDataScope/loom-actions/actions/release/changelog-conventional-commit@e731576f4f9cf4ec2b36fddfc895d328c856d29f # v1
         with:
           mode: "pr"
           branch: ${{ github.event.pull_request.head.sha }}
@@ -91,7 +91,7 @@ jobs:
 
       - name: Publish PR changelog comment
         if: ${{ steps.changelog.outcome == 'success' && steps.changelog.outputs.output_path != '' }}
-        uses: the-reacher-data/loom-actions/actions/core/pr-comment-update@e731576f4f9cf4ec2b36fddfc895d328c856d29f # v1
+        uses: MassiveDataScope/loom-actions/actions/core/pr-comment-update@e731576f4f9cf4ec2b36fddfc895d328c856d29f # v1
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           tags: "<!-- changelog-preview -->,<!-- branch-source:${{ github.head_ref }} -->"
