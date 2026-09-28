@@ -33,7 +33,7 @@ jobs:
 
       - name: Compute release version from merged branch
         id: version
-        uses: the-reacher-data/loom-actions/actions/release/versioning-branch-semantic@e731576f4f9cf4ec2b36fddfc895d328c856d29f # v1
+        uses: MassiveDataScope/loom-actions/actions/release/versioning-branch-semantic@e731576f4f9cf4ec2b36fddfc895d328c856d29f # v1
         with:
           branch: ${{ env.RELEASE_BRANCH }}
           prerelease: "false"
@@ -48,7 +48,7 @@ jobs:
       - name: Generate release changelog
         id: changelog
         if: ${{ steps.version.outputs.deploy == 'true' && github.event_name != 'workflow_dispatch' }}
-        uses: the-reacher-data/loom-actions/actions/release/changelog-conventional-commit@e731576f4f9cf4ec2b36fddfc895d328c856d29f # v1
+        uses: MassiveDataScope/loom-actions/actions/release/changelog-conventional-commit@e731576f4f9cf4ec2b36fddfc895d328c856d29f # v1
         with:
           mode: "release"
           branch: ${{ env.RELEASE_BRANCH }}
